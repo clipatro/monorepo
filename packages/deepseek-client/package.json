@@ -1,0 +1,14 @@
+{
+  "name": "@automation/deepseek-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@automation/contracts": "workspace:*",
+    "@automation/cost-tracker": "workspace:*",
+    "@automation/gemini-client": "workspace:*"
+  }
+}

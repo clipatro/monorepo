@@ -1,0 +1,16 @@
+{
+  "name": "@automation/workflow-engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@automation/contracts": "workspace:*",
+    "@automation/database": "workspace:*",
+    "@automation/cost-tracker": "workspace:*",
+    "@automation/config": "workspace:*",
+    "ably": "^2.27.0"
+  }
+}

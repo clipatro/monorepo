@@ -1,0 +1,212 @@
+# Docker Compose stack for Clipatro.
+# Bun runs inside every container. All services connect to a managed
+# PostgreSQL database (Neon) via DATABASE_URL from the .env file.
+# Services communicate via Docker container names (e.g. http://story-service:3001).
+#
+# Usage:
+#   docker compose up          — start all services
+#   docker compose up --build  — rebuild and start
+#   docker compose up api-gateway web-frontend  — start only gateway + frontend
+#   docker compose down        — stop all
+#   docker compose down -v     — stop all AND wipe runtime data (the clipatro-data volume)
+#
+# Runtime data (generated artifacts) lives in the named volume `clipatro-data`,
+# so `docker compose down -v` fully wipes it. Source assets (./characters,
+# ./media/gameplay) stay as read-only bind mounts and are never touched by
+# `down -v`. The PostgreSQL database is hosted on Neon — it is NOT a local
+# container and is NOT affected by `docker compose down -v`.
+#
+# DATABASE_URL must be set in .env (or .env.example as a template):
+#   DATABASE_URL=postgres://user:password@ep-xxx.region.aws.neon.tech/dbname?sslmode=require
+
+services:
+  # === API Gateway (Hono facade, channel + character CRUD) ===
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+      args:
+        SERVICE_DIR: api-gateway
+        PORT: 3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - clipatro-data:/app/data
+      - ./characters:/app/characters:ro
+    env_file: .env
+    environment:
+      PORT: 3000
+      ARTIFACT_STORE_PATH: /app/data/artifacts
+      # Service URLs (Docker container names)
+      STORY_SERVICE_URL: http://story-service:3001
+      RESEARCH_SERVICE_URL: http://research-service:3002
+      IMAGE_SERVICE_URL: http://image-service:3003
+      VOICE_SERVICE_URL: http://voice-service:3004
+      EMBEDDING_SERVICE_URL: http://embedding-service:3005
+      WORKFLOW_SERVICE_URL: http://workflow-service:3006
+      VIDEO_SERVICE_URL: http://host.docker.internal:3007
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # === Story Service ===
+  story-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+      args:
+        SERVICE_DIR: story-service
+        PORT: 3001
+    ports:
+      - "3001:3001"
+    volumes:
+      - clipatro-data:/app/data
+    env_file: .env
+    environment:
+      PORT: 3001
+      ARTIFACT_STORE_PATH: /app/data/artifacts
+      # Service URLs
+      RESEARCH_SERVICE_URL: http://research-service:3002
+      EMBEDDING_SERVICE_URL: http://embedding-service:3005
+    restart: unless-stopped
+
+  # === Research Service ===
+  research-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+      args:
+        SERVICE_DIR: research-service
+        PORT: 3002
+    ports:
+      - "3002:3002"
+    volumes:
+      - clipatro-data:/app/data
+    env_file: .env
+    environment:
+      PORT: 3002
+      ARTIFACT_STORE_PATH: /app/data/artifacts
+    restart: unless-stopped
+
+  # === Image Service ===
+  image-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+      args:
+        SERVICE_DIR: image-service
+        PORT: 3003
+    ports:
+      - "3003:3003"
+    volumes:
+      - clipatro-data:/app/data
+      - ./characters:/app/characters:ro
+      - ./media/dry-run:/app/media/dry-run:ro
+    env_file: .env
+    environment:
+      PORT: 3003
+      ARTIFACT_STORE_PATH: /app/data/artifacts
+      DRY_RUN_MEDIA_PATH: /app/media/dry-run
+    restart: unless-stopped
+
+  # === Voice Service ===
+  voice-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+      args:
+        SERVICE_DIR: voice-service
+        PORT: 3004
+    ports:
+      - "3004:3004"
+    volumes:
+      - clipatro-data:/app/data
+      - ./media/gameplay:/app/media/gameplay:ro
+    env_file: .env
+    environment:
+      PORT: 3004
+      ARTIFACT_STORE_PATH: /app/data/artifacts
+      GAMEPLAY_VIDEO_PATH: /app/media/gameplay
+    # Allow voice-service to reach Chatterbox TTS running on the host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # === Embedding Service ===
+  embedding-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+      args:
+        SERVICE_DIR: embedding-service
+        PORT: 3005
+    ports:
+      - "3005:3005"
+    volumes:
+      - clipatro-data:/app/data
+    env_file: .env
+    environment:
+      PORT: 3005
+      ARTIFACT_STORE_PATH: /app/data/artifacts
+    restart: unless-stopped
+
+  # === Workflow Service ===
+  workflow-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+      args:
+        SERVICE_DIR: workflow-service
+        PORT: 3006
+    ports:
+      - "3006:3006"
+    volumes:
+      - clipatro-data:/app/data
+    env_file: .env
+    environment:
+      PORT: 3006
+      ARTIFACT_STORE_PATH: /app/data/artifacts
+      # Service URLs — workflow-service calls all other services
+      STORY_SERVICE_URL: http://story-service:3001
+      RESEARCH_SERVICE_URL: http://research-service:3002
+      IMAGE_SERVICE_URL: http://image-service:3003
+      VOICE_SERVICE_URL: http://voice-service:3004
+      EMBEDDING_SERVICE_URL: http://embedding-service:3005
+      VIDEO_SERVICE_URL: http://host.docker.internal:3007
+      API_GATEWAY_URL: http://api-gateway:3000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # Video service runs on the HOST, not in Docker — hyperframes needs
+  # direct chrome-headless-shell + GPU + host CPU access for fast rendering.
+  # The video-service has NO direct DB or artifact store access. Instead it
+  # downloads export bundles from the api-gateway and uploads rendered videos
+  # back via the staging endpoints (/api/runs/:runId/export-bundle + video-upload).
+  # Start: bun run services/video-service/src/index.ts
+
+  # === Web Frontend (React + Vite, Bun dev server) ===
+  web-frontend:
+    build:
+      context: .
+      dockerfile: web-frontend/Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      # Vite proxy targets the api-gateway and workflow-service containers
+      VITE_API_URL: http://api-gateway:3000
+      VITE_WORKFLOW_URL: http://workflow-service:3006
+      # Ably subscribe key for frontend realtime subscriptions (publish not allowed)
+      VITE_ABLY_SUBSCRIBE_KEY: ${ABLY_SUBSCRIBE_KEY}
+    depends_on:
+      - api-gateway
+      - workflow-service
+    restart: unless-stopped
+
+# === Named volumes ===
+# `clipatro-data` holds generated artifacts (images, voiceovers, export packages).
+# The PostgreSQL database is hosted on Neon (serverless, managed) and is NOT
+# a local volume — `docker compose down -v` does NOT wipe the database.
+# Source assets (./characters, ./media/gameplay) stay as bind mounts above.
+volumes:
+  clipatro-data:

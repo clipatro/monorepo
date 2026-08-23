@@ -1,0 +1,83 @@
+# Local dev override — mounts source code for hot reload.
+# This file is automatically merged with docker-compose.yml by Docker Compose.
+# Only used for local dev; not needed in production.
+
+services:
+  api-gateway:
+    volumes:
+      - clipatro-data:/app/data
+      - ./characters:/app/characters:ro
+      - ./packages:/app/packages
+      - ./services:/app/services
+      - ./scripts:/app/scripts
+      - ./video-templates:/app/video-templates:ro
+      - ./package.json:/app/package.json
+      - ./tsconfig.json:/app/tsconfig.json
+    command: ["bun", "run", "--watch", "services/api-gateway/src/index.ts"]
+
+  story-service:
+    volumes:
+      - clipatro-data:/app/data
+      - ./packages:/app/packages
+      - ./services:/app/services
+      - ./package.json:/app/package.json
+      - ./tsconfig.json:/app/tsconfig.json
+    command: ["bun", "run", "--watch", "services/story-service/src/index.ts"]
+
+  research-service:
+    volumes:
+      - clipatro-data:/app/data
+      - ./packages:/app/packages
+      - ./services:/app/services
+      - ./package.json:/app/package.json
+      - ./tsconfig.json:/app/tsconfig.json
+    command: ["bun", "run", "--watch", "services/research-service/src/index.ts"]
+
+  image-service:
+    volumes:
+      - clipatro-data:/app/data
+      - ./characters:/app/characters:ro
+      - ./media/dry-run:/app/media/dry-run:ro
+      - ./packages:/app/packages
+      - ./services:/app/services
+      - ./package.json:/app/package.json
+      - ./tsconfig.json:/app/tsconfig.json
+    command: ["bun", "run", "--watch", "services/image-service/src/index.ts"]
+
+  voice-service:
+    volumes:
+      - clipatro-data:/app/data
+      - ./media/gameplay:/app/media/gameplay:ro
+      - ./packages:/app/packages
+      - ./services:/app/services
+      - ./package.json:/app/package.json
+      - ./tsconfig.json:/app/tsconfig.json
+    command: ["bun", "run", "--watch", "services/voice-service/src/index.ts"]
+
+  embedding-service:
+    volumes:
+      - clipatro-data:/app/data
+      - ./packages:/app/packages
+      - ./services:/app/services
+      - ./package.json:/app/package.json
+      - ./tsconfig.json:/app/tsconfig.json
+    command: ["bun", "run", "--watch", "services/embedding-service/src/index.ts"]
+
+  workflow-service:
+    volumes:
+      - clipatro-data:/app/data
+      - ./packages:/app/packages
+      - ./services:/app/services
+      - ./package.json:/app/package.json
+      - ./tsconfig.json:/app/tsconfig.json
+    command: ["bun", "run", "--watch", "services/workflow-service/src/index.ts"]
+
+  # video-service runs on the HOST, not in Docker
+
+  web-frontend:
+    volumes:
+      - ./web-frontend:/app/web-frontend
+      - ./packages:/app/packages
+      - ./services:/app/services
+      - ./package.json:/app/package.json
+      - ./tsconfig.json:/app/tsconfig.json

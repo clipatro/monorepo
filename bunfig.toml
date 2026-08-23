@@ -1,0 +1,3 @@
+[install]
+# Use the workspace protocol for local packages
+linker = "hoisted"

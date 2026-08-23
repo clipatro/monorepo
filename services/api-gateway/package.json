@@ -1,0 +1,19 @@
+{
+  "name": "api-gateway",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@automation/server": "workspace:*",
+    "@automation/contracts": "workspace:*",
+    "@automation/config": "workspace:*",
+    "@automation/database": "workspace:*",
+    "@automation/cost-tracker": "workspace:*",
+    "hono": "^4.7.11",
+    "zod": "^3.25.76"
+  }
+}

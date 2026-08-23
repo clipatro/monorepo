@@ -1,0 +1,47 @@
+# Secrets — never commit
+.env
+creds.txt
+*.key
+*.pem
+service-account*.json
+
+# Dependencies
+node_modules/
+bun.lockb
+
+# Build artifacts
+dist/
+build/
+*.tsbuildinfo
+
+# Spike outputs (regenerable)
+spikes/*/output/
+spikes/output/
+
+# Local artifact store (runtime data, not source)
+artifacts/
+exports/
+data/
+downloaded-clips/
+videos/
+docs/
+chrome-headless-shell/
+media/gameplay/
+
+# SQLite databases
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Logs
+*.log
+logs/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+

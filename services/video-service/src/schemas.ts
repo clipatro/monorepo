@@ -1,0 +1,56 @@
+import { z } from "zod";
+
+export const generateSchema = z.object({
+  runId: z.string().min(1),
+  /** URL of the api-gateway (for downloading export bundle + uploading result). */
+  apiGatewayUrl: z.string().url().optional(),
+  /** Explicit export directory on the host filesystem (bypasses gateway download). */
+  exportDir: z.string().min(1).optional(),
+  fps: z.number().int().min(24).max(60).default(60),
+  quality: z.enum(["low", "medium", "high"]).default("high"),
+});
+
+/**
+ * D017: Clip generation schema — generate a single AI video clip for a scene.
+ * Used by the clip_generation workflow step.
+ */
+export const generateClipSchema = z.object({
+  prompt: z.string().min(1),
+  /** Output directory for the clip. */
+  outputDir: z.string().min(1),
+  /** Output filename (e.g. "clip-01.mp4"). */
+  outputFilename: z.string().min(1),
+  /** Model id (e.g. "fal-ai/ltx-video"). */
+  model: z.string().default("fal-ai/ltx-video"),
+  /** Aspect ratio (e.g. "9:16"). */
+  aspectRatio: z.string().default("9:16"),
+  /** Duration in seconds (if the model supports it). */
+  durationSec: z.number().positive().optional(),
+  /** Run id (for cost tracking). */
+  runId: z.string().optional(),
+  /** Step id (for cost tracking). */
+  stepId: z.string().optional(),
+  /** Scene index (for logging). */
+  sceneIndex: z.number().int().optional(),
+  /**
+   * Optional image reference for image-to-video generation.
+   * Can be a URL or "asset:<id>" reference (resolved via api-gateway).
+   * When provided, uses fal.ai's image-to-video endpoint to animate
+   * the image, giving character visual consistency. When omitted,
+   * uses text-to-video.
+   */
+  imageUrl: z.string().optional(),
+});
+
+/**
+ * D017: Clip-based render schema — render a final video from pre-generated clips.
+ */
+export const renderClipsSchema = z.object({
+  runId: z.string().min(1),
+  apiGatewayUrl: z.string().url().optional(),
+  exportDir: z.string().min(1).optional(),
+  /** Template config JSON (the merged effective config for the channel). */
+  templateConfig: z.record(z.any()).optional(),
+  /** Whether voiceover is present. */
+  hasVoiceover: z.boolean().default(true),
+});

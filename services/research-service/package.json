@@ -1,0 +1,22 @@
+{
+  "name": "research-service",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@automation/server": "workspace:*",
+    "@automation/contracts": "workspace:*",
+    "@automation/config": "workspace:*",
+    "@automation/database": "workspace:*",
+    "@automation/cost-tracker": "workspace:*",
+    "@automation/gemini-client": "workspace:*",
+    "@automation/llm-provider": "workspace:*",
+    "hono": "^4.7.11",
+    "zod": "^3.25.76",
+    "@hono/zod-validator": "^0.7.0"
+  }
+}

@@ -1,0 +1,118 @@
+{
+  "id": "ai-video-clips",
+  "name": "AI Video Clips",
+  "description": "Full-frame AI-generated video clips per scene, stitched with crossfade transitions. No images, no gameplay video. Optional voiceover commentary (user can disable). Uses fal.ai LTX 2.3 for clip generation (1080p).",
+  "version": 1,
+  "config": {
+    "layout": {
+      "aspectRatio": "9:16",
+      "width": 1080,
+      "height": 1920,
+      "regions": [
+        {
+          "id": "clips",
+          "slot": "full",
+          "x": 0,
+          "y": 0,
+          "width": 1080,
+          "height": 1920,
+          "type": "video-sequence",
+          "transition": "crossfade",
+          "transitionDuration": 0.5,
+          "zIndex": 1
+        }
+      ],
+      "fadeIn": {
+        "duration": 1.0
+      },
+      "fadeOut": {
+        "duration": 1.0
+      }
+    },
+    "assets": {
+      "videoClips": {
+        "required": true,
+        "perScene": true,
+        "source": "ai-generation",
+        "purpose": "scene-visual"
+      },
+      "voiceover": {
+        "required": false,
+        "source": "tts",
+        "role": "commentary",
+        "default": "enabled"
+      },
+      "captions": {
+        "required": false,
+        "format": "srt",
+        "precision": "scene-level",
+        "default": "disabled"
+      }
+    },
+    "scenePlan": {
+      "sceneType": "video-clip-scene",
+      "imageRequirement": false,
+      "clipPromptFields": [
+        "visualEvent",
+        "motionDescription",
+        "cameraMovement",
+        "environment",
+        "lightingAndMood"
+      ],
+      "clipDurationSeconds": {
+        "min": 5,
+        "max": 10
+      }
+    },
+    "pipeline": {
+      "steps": {
+        "concept_intake": { "enabled": true, "dependsOn": [] },
+        "content_classification": { "enabled": true, "dependsOn": ["concept_intake"] },
+        "research": { "enabled": true, "dependsOn": ["content_classification"] },
+        "novelty_context": { "enabled": true, "dependsOn": ["content_classification"] },
+        "generate_candidates": { "enabled": true, "dependsOn": ["novelty_context"] },
+        "duplicate_detection": { "enabled": true, "dependsOn": ["generate_candidates"] },
+        "story_approval": { "enabled": true, "dependsOn": ["duplicate_detection"] },
+        "scene_plan": { "enabled": true, "required": true, "dependsOn": ["story_approval"] },
+        "script_approval": { "enabled": true, "dependsOn": ["scene_plan"] },
+        "image_prompt_compilation": { "enabled": false },
+        "image_generation": { "enabled": false },
+        "image_review": { "enabled": false },
+        "clip_prompt_compilation": { "enabled": true, "required": true, "dependsOn": ["script_approval"] },
+        "clip_generation": { "enabled": true, "required": true, "dependsOn": ["clip_prompt_compilation"] },
+        "voice_generation": { "enabled": true, "required": false, "dependsOn": ["script_approval"] },
+        "audio_timing": { "enabled": true, "required": false, "dependsOn": ["voice_generation"] },
+        "package_assembly": { "enabled": true, "required": true, "dependsOn": ["clip_generation", "audio_timing"] },
+        "video_generation": { "enabled": true, "dependsOn": ["package_assembly"] }
+      }
+    },
+    "render": {
+      "renderer": "ffmpeg",
+      "fps": 30,
+      "quality": "high",
+      "encoder": {
+        "gpu": "h264_nvenc",
+        "cpu": "libx264"
+      },
+      "clipStitching": "crossfade"
+    },
+    "providers": {
+      "video": {
+        "defaultProvider": "fal",
+        "defaultModel": "fal-ai/ltx-2.3/text-to-video/fast",
+        "alternativeModels": [
+          "fal-ai/ltx-2.3/text-to-video",
+          "fal-ai/ltx-video",
+          "fal-ai/ltx-video-13b-distilled"
+        ]
+      },
+      "voice": {
+        "defaultProvider": "kokoro",
+        "defaultModel": "kokoro-82m",
+        "defaultVoiceId": "af_heart",
+        "fallbackProvider": "gemini",
+        "fallbackVoiceId": "Algenib"
+      }
+    }
+  }
+}

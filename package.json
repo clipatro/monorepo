@@ -1,0 +1,41 @@
+{
+  "name": "clipatro",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "web-frontend"
+  ],
+  "scripts": {
+    "spike": "bun run spikes/run.ts",
+    "cost": "bun run packages/cost-tracker/src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "dev": "docker compose up",
+    "dev:build": "docker compose build",
+    "migrate": "bun run packages/database/src/migrate.ts",
+    "seed": "bun run scripts/seed.ts",
+    "dev:services": "concurrently -n gateway,story,research,image,voice,embedding,workflow,video,frontend -c blue,green,yellow,magenta,cyan,red,white,brightMagenta,gray \"bun run services/api-gateway/src/index.ts\" \"bun run services/story-service/src/index.ts\" \"bun run services/research-service/src/index.ts\" \"bun run services/image-service/src/index.ts\" \"bun run services/voice-service/src/index.ts\" \"bun run services/embedding-service/src/index.ts\" \"bun run services/workflow-service/src/index.ts\" \"PORT=3007 DATABASE_PATH=./data/app.sqlite ARTIFACT_STORE_PATH=./data/artifacts COST_LEDGER_PATH=./data/cost-ledger.sqlite bun run services/video-service/src/index.ts\" \"bun run web-frontend/dev",
+    "video:serve": "PORT=3007 API_GATEWAY_URL=http://localhost:3000 bun run services/video-service/src/index.ts",
+    "video:gpu": "HYPERFRAMES_GPU=1 PORT=3007 API_GATEWAY_URL=http://localhost:3000 bun run services/video-service/src/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.21",
+    "@types/pg": "^8.23.1",
+    "concurrently": "^9.1.2",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.7.0",
+    "@huggingface/transformers": "^4.2.0",
+    "@xenova/transformers": "^2.17.2",
+    "@xyflow/react": "^12.8.2",
+    "hono": "^4.7.11",
+    "kokoro-js": "^1.2.1",
+    "pg": "^8.23.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^3.25.76"
+  }
+}
