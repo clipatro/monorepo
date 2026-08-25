@@ -86,6 +86,31 @@ export function registerImageProxyRoutes(app: Hono, config: AppConfig): void {
     return c.json(await res.json(), res.status as 200 | 201 | 400 | 404 | 500);
   });
 
+  // D021: POST /api/image/flow-scene-prompts — compile Flow-optimized prompts
+  app.post("/api/image/flow-scene-prompts", async (c) => {
+    const body = await c.req.json();
+    const res = await fetch(`${IMAGE_SERVICE_URL}/flow-scene-prompts`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    return c.json(await res.json(), res.status as 200 | 400 | 404 | 500);
+  });
+
+  // D021: POST /api/image/flow-clip-upload — upload video clip or image per scene
+  app.post("/api/image/flow-clip-upload", async (c) => {
+    const formData = await c.req.formData();
+    const res = await fetch(`${IMAGE_SERVICE_URL}/flow-clip-upload`, { method: "POST", body: formData });
+    return c.json(await res.json(), res.status as 200 | 201 | 400 | 404 | 500);
+  });
+
+  // D021: POST /api/image/flow-generate — auto-generate via CDP
+  app.post("/api/image/flow-generate", async (c) => {
+    const body = await c.req.json();
+    const res = await fetch(`${IMAGE_SERVICE_URL}/flow-generate`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    return c.json(await res.json(), res.status as 200 | 201 | 400 | 404 | 500);
+  });
+
   // GET /api/image/gallery — list ALL images across all stories (with search + pagination)
   app.get("/api/image/gallery", async (c) => {
     const params = new URLSearchParams();

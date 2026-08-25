@@ -58,6 +58,7 @@ All facades share a common `ProviderRequest`/`ProviderResponse` envelope (provid
 ## Cost tracking
 
 Every paid provider call must:
+
 1. Call `checkBudget()` before the call (throws `BudgetExceededError` if exceeded)
 2. Call `recordCost()` after the call with the cost breakdown + usage metadata
 3. Budget defaults: $2/run, $10/day, $100 global (env-configurable)
@@ -87,11 +88,12 @@ All planning, progress tracking, decisions, and session history live in Obsidian
 
 ## Hard rules
 
-- **Never commit secrets.** API keys live in `<project_root>/.env` (gitignored). Document key *paths* in `Provider Credentials.md`, never values.
+- **Never commit secrets.** API keys live in `<project_root>/.env` (gitignored). Document key _paths_ in `Provider Credentials.md`, never values.
 - **No paid provider calls** until a benchmark budget is explicitly approved by the user (per the plan's approval state).
 - **Do not modify** the Obsidian `Implementation Plan.md` without recording a decision in `Decisions Log.md`.
 - **Follow the plan's stack choices.** If a library is needed, confirm it is Bun-compatible and prefer versions published at least 7 days ago.
 - **Verify before marking done.** Run typecheck/build/tests as applicable before checking a box in `Progress Tracker.md`.
+- **Never commit anything.** Do not run `git commit`, `git add`, or `git push` under any circumstances. The user will handle all commits themselves.
 
 ## Phases (summary — full task lists in Obsidian `Implementation Plan.md`)
 
@@ -104,6 +106,7 @@ All planning, progress tracking, decisions, and session history live in Obsidian
 - Phase 6 — Hardening and multi-channel readiness (all services) — **COMPLETE**
 - Phase 7 — Context-Aware Character System (decouple characters from channels, multi-character stories, auto-character creation) — **COMPLETE**
 - Phase 8 — Video Templates System (template-driven video assembly, FalVideoAdapter, template-aware scene planner) — **COMPLETE**
+- Phase 9 — Google Flow Templates (manual + auto Flow integration, CDP-driven generation, clip upload/arrange, hybrid clips+images) — **COMPLETE**
 
 ## Verification commands
 

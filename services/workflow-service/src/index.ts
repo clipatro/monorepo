@@ -30,6 +30,8 @@ import {
   videoGenerationHandler,
   clipPromptCompilationHandler,
   clipGenerationHandler,
+  flowPromptCompilationHandler,
+  flowGenerationHandler,
 } from "./handlers.ts";
 
 import { registerRunsRoutes } from "./routes/runs.ts";
@@ -83,9 +85,14 @@ function setupRoutes(app: Hono, config: AppConfig): void {
   engine.registerHandler("clip_prompt_compilation", clipPromptCompilationHandler);
   engine.registerHandler("clip_generation", clipGenerationHandler);
 
+  // D021: Register Flow template handlers (Phase 9)
+  engine.registerHandler("flow_prompt_compilation", flowPromptCompilationHandler);
+  engine.registerHandler("flow_generation", flowGenerationHandler);
+
   // Register stub handlers for approval-only steps (no handler needed — pauses run)
   const stubSteps: StepType[] = [
     "story_approval", "script_approval", "image_review",
+    "flow_upload", // D021: approval checkpoint — editedData stored as result_data by decideApproval
   ];
   for (const stepType of stubSteps) {
     engine.registerHandler(stepType, createStubHandler(stepType));

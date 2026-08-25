@@ -81,13 +81,14 @@ const assetsSchema = z.object({
 });
 
 const scenePlanSchema = z.object({
-  sceneType: z.enum(["image-scene", "video-clip-scene"]),
+  sceneType: z.enum(["image-scene", "video-clip-scene", "flow-hybrid"]),
   imageRequirement: z.boolean(),
   clipPromptFields: z.array(z.string()).optional(),
   clipDurationSeconds: z
     .object({ min: z.number().positive(), max: z.number().positive() })
     .optional(),
   visualPlanFields: z.array(z.string()).optional(),
+  maxClips: z.number().int().min(1).optional(),
 });
 
 const stepConfigSchema = z.object({

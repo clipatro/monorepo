@@ -114,8 +114,13 @@ export interface RenderInput {
   totalDuration: number;
   /** Scene entries (image + timing) */
   scenes: RenderScene[];
-  /** Gameplay video filename (relative to exportDir) */
-  gameplayFile: string;
+  /** Gameplay video filename (relative to exportDir). Optional — if omitted,
+   *  the renderer produces a full-frame image-sequence video with no gameplay. */
+  gameplayFile?: string;
+  /** D020: Path to a background audio file (mp3/wav). When provided, the renderer
+   *  mixes it under the voiceover at a low volume, trimmed to totalDuration
+   *  with a fade-out at the end. */
+  backgroundAudioPath?: string | null;
   /** Working directory for intermediate files */
   workDir: string;
   /** Final output MP4 path */
@@ -155,6 +160,49 @@ export interface ClipRenderInput {
   totalDuration: number;
   /** Clip entries (file + timing). */
   clips: Array<{ index: number; clipFile: string; durationSec: number }>;
+  /** D020: Path to a background audio file. Mixed under voiceover at low volume. */
+  backgroundAudioPath?: string | null;
+  /** Working directory for intermediate files. */
+  workDir: string;
+  /** Final output MP4 path. */
+  outputPath: string;
+  /** D017: Template-derived render params. */
+  templateParams: RenderParams;
+  /** Optional logger. */
+  log?: (msg: string) => void;
+}
+
+/**
+ * Flow hybrid render input — for flow-hybrid templates (Phase 9).
+ *
+ * Each segment is either a video clip (mp4) or a static image (jpg/png).
+ * Video clips are normalized to target resolution; images get Ken Burns.
+ * All segments are crossfaded together into a full-frame vertical video.
+ */
+export interface FlowSegment {
+  /** Scene index (0-based). */
+  index: number;
+  /** Scene order (1-based, for logging). */
+  order: number;
+  /** "video-clip" or "image". */
+  kind: "video-clip" | "image";
+  /** Filename relative to exportDir (the clip mp4 or image jpg/png). */
+  file: string;
+  /** Duration in seconds (from imageTimeline). */
+  durationSec: number;
+}
+
+export interface FlowRenderInput {
+  /** Directory containing the clip/image files + voiceover. */
+  exportDir: string;
+  /** Path to the already-normalized voiceover WAV (null if no voiceover). */
+  voiceoverPath: string | null;
+  /** Total video duration in seconds. */
+  totalDuration: number;
+  /** Ordered segments (clips + images interleaved). */
+  segments: FlowSegment[];
+  /** D020: Path to a background audio file. Mixed under voiceover at low volume. */
+  backgroundAudioPath?: string | null;
   /** Working directory for intermediate files. */
   workDir: string;
   /** Final output MP4 path. */
@@ -189,7 +237,9 @@ export async function renderVideo(input: RenderInput): Promise<RenderResult> {
     log(msg);
   };
 
-  const { exportDir, voiceoverPath, totalDuration, scenes, gameplayFile, workDir, outputPath } = input;
+  const { exportDir, voiceoverPath, totalDuration, scenes, gameplayFile, backgroundAudioPath, workDir, outputPath } = input;
+  const hasGameplay = !!gameplayFile;
+  const hasBackgroundAudio = !!backgroundAudioPath;
 
   // D017: Use template-derived params if provided, otherwise defaults
   const tp = input.templateParams;
@@ -248,12 +298,15 @@ export async function renderVideo(input: RenderInput): Promise<RenderResult> {
       const xExpr = `'${kb.xExpr}'`;
       const yExpr = `'${kb.yExpr}'`;
 
+      // For full-frame (no gameplay), scale to full height; otherwise top half
+      const sceneHeight = hasGameplay ? TOP_HEIGHT : HEIGHT;
+
       const t1 = Date.now();
       const cmd =
         `ffmpeg -y -loop 1 -t ${s.durationSec} -i "${join(exportDir, s.imageFile)}" ` +
         `-filter_complex "` +
         `scale=${WIDTH * 2}:-1,` +
-        `zoompan=z=${zExpr}:x=${xExpr}:y=${yExpr}:d=${totalFrames}:s=${WIDTH}x${TOP_HEIGHT}:fps=${FPS},` +
+        `zoompan=z=${zExpr}:x=${xExpr}:y=${yExpr}:d=${totalFrames}:s=${WIDTH}x${sceneHeight}:fps=${FPS},` +
         `format=yuv420p` +
         `" ` +
         `${encOptsInter} -t ${s.durationSec} "${clipPath}" 2>&1`;
@@ -306,57 +359,127 @@ export async function renderVideo(input: RenderInput): Promise<RenderResult> {
       pushLog(`  Padding scene timeline by ${scenePadding.toFixed(2)}s (clone last frame)`);
     }
 
-    // 3. Prepare gameplay video
-    const gameplaySrc = join(exportDir, gameplayFile);
-    const gameplayScaled = join(clipsDir, "gameplay-scaled.mp4");
-    pushLog("\nPreparing gameplay video...");
-    const t3 = Date.now();
+    // 3. Prepare gameplay video (if provided)
+    let gameplayScaled = "";
+    if (hasGameplay) {
+      const gameplaySrc = join(exportDir, gameplayFile!);
+      gameplayScaled = join(clipsDir, "gameplay-scaled.mp4");
+      pushLog("\nPreparing gameplay video...");
+      const t3 = Date.now();
 
-    if (gpu.cuda) {
-      await runCmd(
-        `ffmpeg -y -hwaccel cuda -hwaccel_output_format cuda -i "${gameplaySrc}" -t ${totalDuration} ` +
-          `-vf "scale_cuda=${WIDTH}:${TOP_HEIGHT}:force_original_aspect_ratio=increase,hwdownload,format=nv12,crop=${WIDTH}:${TOP_HEIGHT},fps=${FPS},format=yuv420p" ` +
-          `${encOptsInter} -an "${gameplayScaled}" 2>&1`,
-        { timeout: 120000 },
-      );
-    } else {
-      await runCmd(
-        `ffmpeg -y -i "${gameplaySrc}" -t ${totalDuration} ` +
-          `-vf "scale=${WIDTH}:${TOP_HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${TOP_HEIGHT},fps=${FPS},format=yuv420p" ` +
-          `${encOptsInter} -an "${gameplayScaled}" 2>&1`,
-        { timeout: 120000 },
-      );
+      if (gpu.cuda) {
+        await runCmd(
+          `ffmpeg -y -hwaccel cuda -hwaccel_output_format cuda -i "${gameplaySrc}" -t ${totalDuration} ` +
+            `-vf "scale_cuda=${WIDTH}:${TOP_HEIGHT}:force_original_aspect_ratio=increase,hwdownload,format=nv12,crop=${WIDTH}:${TOP_HEIGHT},fps=${FPS},format=yuv420p" ` +
+            `${encOptsInter} -an "${gameplayScaled}" 2>&1`,
+          { timeout: 120000 },
+        );
+      } else {
+        await runCmd(
+          `ffmpeg -y -i "${gameplaySrc}" -t ${totalDuration} ` +
+            `-vf "scale=${WIDTH}:${TOP_HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${TOP_HEIGHT},fps=${FPS},format=yuv420p" ` +
+            `${encOptsInter} -an "${gameplayScaled}" 2>&1`,
+          { timeout: 120000 },
+        );
+      }
+      pushLog(`  Gameplay scaled → ${((Date.now() - t3) / 1000).toFixed(1)}s`);
     }
-    pushLog(`  Gameplay scaled → ${((Date.now() - t3) / 1000).toFixed(1)}s`);
 
-    // 4. Vstack: scene timeline (top) + gameplay (bottom) + divider + fade + audio
-    pushLog("\nCompositing final video (vstack + divider + fade + audio)...");
+    // 4. Composite final video
+    pushLog("\nCompositing final video...");
     const t4 = Date.now();
     const fadeOutStart = totalDuration - FADE_OUT_DUR;
 
-    const finalFilter = [
-      // Pad scene timeline to totalDuration (clone last frame) before fade so
-      // fade-out lands within the stream's actual duration.
-      `[0:v]tpad=stop_mode=clone:stop_duration=${scenePadding.toFixed(3)},fade=t=in:st=0:d=${FADE_IN_DUR},fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${FADE_OUT_DUR}[topfade]`,
-      `[1:v]fade=t=in:st=0:d=${FADE_IN_DUR},fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${FADE_OUT_DUR}[botfade]`,
-      `[topfade][botfade]vstack=inputs=2[stacked]`,
-      `[stacked]drawbox=x=0:y=${(tp?.dividerY ?? TOP_HEIGHT - 3)}:w=${WIDTH}:h=${tp?.dividerHeight ?? 6}:color=${(tp?.dividerColor ?? "#0a0a0a").replace("#", "0x")}:t=fill[withdiv]`,
-    ].join(";");
+    // D020: Background audio mixing filter chain.
+    // Trims to totalDuration, lowers volume, adds fade-out, then mixes under voiceover.
+    const BG_VOLUME = 0.28; // ~-11dB — clearly audible under the voiceover
+    const bgAudioFilter = (bgInputIdx: number) =>
+      `[${bgInputIdx}:a]atrim=0:${totalDuration.toFixed(3)},asetpts=PTS-STARTPTS,volume=${BG_VOLUME},afade=t=out:st=${fadeOutStart.toFixed(3)}:d=${FADE_OUT_DUR}[bgm]`;
 
-    const finalCmd =
-      `ffmpeg -y ` +
-      `-i "${sceneTimelinePath}" ` +
-      `-i "${gameplayScaled}" ` +
-      `-i "${voiceoverPath}" ` +
-      `-filter_complex "${finalFilter}" ` +
-      `-map "[withdiv]" -map 2:a ` +
-      `${encOpts} ` +
-      `-c:a aac -b:a 192k ` +
-      `-t ${totalDuration} ` +
-      `-movflags +faststart ` +
-      `"${outputPath}" 2>&1`;
+    if (hasGameplay) {
+      // Split-screen: scene timeline (top) + gameplay (bottom) + divider + fade + audio
+      pushLog(`  Layout: split-screen (scenes top + gameplay bottom)${hasBackgroundAudio ? " + background music" : ""}`);
+      const videoFilter = [
+        `[0:v]tpad=stop_mode=clone:stop_duration=${scenePadding.toFixed(3)},fade=t=in:st=0:d=${FADE_IN_DUR},fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${FADE_OUT_DUR}[topfade]`,
+        `[1:v]fade=t=in:st=0:d=${FADE_IN_DUR},fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${FADE_OUT_DUR}[botfade]`,
+        `[topfade][botfade]vstack=inputs=2[stacked]`,
+        `[stacked]drawbox=x=0:y=${(tp?.dividerY ?? TOP_HEIGHT - 3)}:w=${WIDTH}:h=${tp?.dividerHeight ?? 6}:color=${(tp?.dividerColor ?? "#0a0a0a").replace("#", "0x")}:t=fill[withdiv]`,
+      ];
 
-    await runCmd(finalCmd, { timeout: 300000 });
+      let finalCmd: string;
+      if (hasBackgroundAudio && backgroundAudioPath) {
+        // Inputs: 0=scene timeline, 1=gameplay, 2=voiceover, 3=background audio
+        const finalFilter = [...videoFilter, bgAudioFilter(3), `[2:a][bgm]amix=inputs=2:duration=first:normalize=0:weights=1 1[aout]`].join(";");
+        finalCmd =
+          `ffmpeg -y ` +
+          `-i "${sceneTimelinePath}" ` +
+          `-i "${gameplayScaled}" ` +
+          `-i "${voiceoverPath}" ` +
+          `-i "${backgroundAudioPath}" ` +
+          `-filter_complex "${finalFilter}" ` +
+          `-map "[withdiv]" -map "[aout]" ` +
+          `${encOpts} ` +
+          `-c:a aac -b:a 192k ` +
+          `-t ${totalDuration} ` +
+          `-movflags +faststart ` +
+          `"${outputPath}" 2>&1`;
+      } else {
+        const finalFilter = videoFilter.join(";");
+        finalCmd =
+          `ffmpeg -y ` +
+          `-i "${sceneTimelinePath}" ` +
+          `-i "${gameplayScaled}" ` +
+          `-i "${voiceoverPath}" ` +
+          `-filter_complex "${finalFilter}" ` +
+          `-map "[withdiv]" -map 2:a ` +
+          `${encOpts} ` +
+          `-c:a aac -b:a 192k ` +
+          `-t ${totalDuration} ` +
+          `-movflags +faststart ` +
+          `"${outputPath}" 2>&1`;
+      }
+
+      await runCmd(finalCmd, { timeout: 300000 });
+    } else {
+      // Full-frame: scene images fill the entire video, no gameplay
+      pushLog(`  Layout: full-frame (scenes only, no gameplay)${hasBackgroundAudio ? " + background music" : ""}`);
+      const videoFilter = [
+        `[0:v]tpad=stop_mode=clone:stop_duration=${scenePadding.toFixed(3)},fade=t=in:st=0:d=${FADE_IN_DUR},fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${FADE_OUT_DUR}[vfade]`,
+      ];
+
+      let finalCmd: string;
+      if (hasBackgroundAudio && backgroundAudioPath) {
+        // Inputs: 0=scene timeline, 1=voiceover, 2=background audio
+        const finalFilter = [...videoFilter, bgAudioFilter(2), `[1:a][bgm]amix=inputs=2:duration=first:normalize=0:weights=1 1[aout]`].join(";");
+        finalCmd =
+          `ffmpeg -y ` +
+          `-i "${sceneTimelinePath}" ` +
+          `-i "${voiceoverPath}" ` +
+          `-i "${backgroundAudioPath}" ` +
+          `-filter_complex "${finalFilter}" ` +
+          `-map "[vfade]" -map "[aout]" ` +
+          `${encOpts} ` +
+          `-c:a aac -b:a 192k ` +
+          `-t ${totalDuration} ` +
+          `-movflags +faststart ` +
+          `"${outputPath}" 2>&1`;
+      } else {
+        const finalFilter = videoFilter.join(";");
+        finalCmd =
+          `ffmpeg -y ` +
+          `-i "${sceneTimelinePath}" ` +
+          `-i "${voiceoverPath}" ` +
+          `-filter_complex "${finalFilter}" ` +
+          `-map "[vfade]" -map 1:a ` +
+          `${encOpts} ` +
+          `-c:a aac -b:a 192k ` +
+          `-t ${totalDuration} ` +
+          `-movflags +faststart ` +
+          `"${outputPath}" 2>&1`;
+      }
+
+      await runCmd(finalCmd, { timeout: 300000 });
+    }
     pushLog(`  Final composite → ${((Date.now() - t4) / 1000).toFixed(1)}s`);
 
     // 5. Probe the output
@@ -461,7 +584,8 @@ export async function renderClipsVideo(input: ClipRenderInput): Promise<RenderRe
     log(msg);
   };
 
-  const { exportDir, voiceoverPath, totalDuration, clips, workDir, outputPath, templateParams: tp } = input;
+  const { exportDir, voiceoverPath, totalDuration, clips, backgroundAudioPath, workDir, outputPath, templateParams: tp } = input;
+  const hasBackgroundAudio = !!backgroundAudioPath;
 
   const FPS = tp.fps;
   const WIDTH = tp.width;
@@ -552,24 +676,47 @@ export async function renderClipsVideo(input: ClipRenderInput): Promise<RenderRe
     pushLog("\nCompositing final video...");
     const fadeOutStart = totalDuration - FADE_OUT_DUR;
 
-    if (voiceoverPath) {
-      // With voiceover
-      const filter = [
-        `[0:v]tpad=stop_mode=clone:stop_duration=${padding.toFixed(3)},fade=t=in:st=0:d=${FADE_IN_DUR},fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${FADE_OUT_DUR}[v]`,
-      ].join(";");
+    // D020: Background audio mixing
+    const BG_VOLUME = 0.28;
+    const bgAudioFilter = (bgInputIdx: number) =>
+      `[${bgInputIdx}:a]atrim=0:${totalDuration.toFixed(3)},asetpts=PTS-STARTPTS,volume=${BG_VOLUME},afade=t=out:st=${fadeOutStart.toFixed(3)}:d=${FADE_OUT_DUR}[bgm]`;
 
+    const videoFadeFilter = `[0:v]tpad=stop_mode=clone:stop_duration=${padding.toFixed(3)},fade=t=in:st=0:d=${FADE_IN_DUR},fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${FADE_OUT_DUR}[v]`;
+
+    if (voiceoverPath && hasBackgroundAudio && backgroundAudioPath) {
+      // Voiceover + background music
+      pushLog("  Audio: voiceover + background music");
+      const filter = [videoFadeFilter, bgAudioFilter(2), `[1:a][bgm]amix=inputs=2:duration=first:normalize=0:weights=1 1[aout]`].join(";");
+      await runCmd(
+        `ffmpeg -y -i "${timelinePath}" -i "${voiceoverPath}" -i "${backgroundAudioPath}" ` +
+          `-filter_complex "${filter}" -map "[v]" -map "[aout]" ` +
+          `${encOpts} -c:a aac -b:a 192k -t ${totalDuration} -movflags +faststart "${outputPath}" 2>&1`,
+        { timeout: 300000 },
+      );
+    } else if (voiceoverPath) {
+      // With voiceover only
+      pushLog("  Audio: voiceover only");
+      const filter = [videoFadeFilter].join(";");
       await runCmd(
         `ffmpeg -y -i "${timelinePath}" -i "${voiceoverPath}" ` +
           `-filter_complex "${filter}" -map "[v]" -map 1:a ` +
           `${encOpts} -c:a aac -b:a 192k -t ${totalDuration} -movflags +faststart "${outputPath}" 2>&1`,
         { timeout: 300000 },
       );
+    } else if (hasBackgroundAudio && backgroundAudioPath) {
+      // Background music only (no voiceover)
+      pushLog("  Audio: background music only");
+      const filter = [videoFadeFilter, bgAudioFilter(1), `[bgm]amix=inputs=1:duration=first:normalize=0[aout]`].join(";");
+      await runCmd(
+        `ffmpeg -y -i "${timelinePath}" -i "${backgroundAudioPath}" ` +
+          `-filter_complex "${filter}" -map "[v]" -map "[aout]" ` +
+          `${encOpts} -c:a aac -b:a 192k -t ${totalDuration} -movflags +faststart "${outputPath}" 2>&1`,
+        { timeout: 300000 },
+      );
     } else {
-      // No voiceover — video only
-      const filter = [
-        `[0:v]tpad=stop_mode=clone:stop_duration=${padding.toFixed(3)},fade=t=in:st=0:d=${FADE_IN_DUR},fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${FADE_OUT_DUR}[v]`,
-      ].join(";");
-
+      // No audio — video only
+      pushLog("  Audio: none");
+      const filter = [videoFadeFilter].join(";");
       await runCmd(
         `ffmpeg -y -i "${timelinePath}" ` +
           `-filter_complex "${filter}" -map "[v]" ` +
@@ -578,6 +725,205 @@ export async function renderClipsVideo(input: ClipRenderInput): Promise<RenderRe
       );
     }
     pushLog("  Final composite done");
+
+    // 4. Probe output
+    const success = await exists(outputPath);
+    if (!success) {
+      return { success: false, outputPath, durationSec: 0, fps: "", sizeBytes: 0, width: 0, height: 0, codec: "", gpuUsed: useGpu, error: "Render produced no output file", log: logBuf.join("\n") };
+    }
+
+    let durationSec = 0, fps = "", sizeBytes = 0, width = 0, height = 0, codec = "";
+    try {
+      const probe = async (args: string) => (await runCmd(`ffprobe -v error ${args} "${outputPath}"`)).stdout.trim();
+      durationSec = parseFloat(await probe("-show_entries format=duration -of csv=p=0"));
+      sizeBytes = parseInt(await probe("-show_entries format=size -of csv=p=0"), 10);
+      width = parseInt(await probe("-select_streams v:0 -show_entries stream=width -of csv=p=0"), 10);
+      height = parseInt(await probe("-select_streams v:0 -show_entries stream=height -of csv=p=0"), 10);
+      fps = await probe("-select_streams v:0 -show_entries stream=r_frame_rate -of csv=p=0");
+      codec = await probe("-select_streams v:0 -show_entries stream=codec_name -of csv=p=0");
+    } catch { /* non-critical */ }
+
+    pushLog(`\nOutput: ${width}x${height}, ${durationSec.toFixed(2)}s, ${fps} fps, ${codec}, ${(sizeBytes / 1024 / 1024).toFixed(1)} MB`);
+
+    return { success: true, outputPath, durationSec, fps, sizeBytes, width, height, codec, gpuUsed: useGpu, log: logBuf.join("\n") };
+  } catch (e: any) {
+    const errDetail = e?.stderr ?? e?.stdout ?? e?.message ?? String(e);
+    return { success: false, outputPath, durationSec: 0, fps: "", sizeBytes: 0, width: 0, height: 0, codec: "", gpuUsed: useGpu, error: errDetail, log: logBuf.join("\n") };
+  }
+}
+
+// === Flow hybrid renderer (Phase 9) ===
+// Renders a mix of video clips and static images into a full-frame vertical video.
+// - Video clips: normalized (scale + crop to target, fps)
+// - Images: Ken Burns zoompan effect
+// - All segments crossfaded together
+// - Voiceover + optional background audio + fade in/out
+
+export async function renderFlowVideo(input: FlowRenderInput): Promise<RenderResult> {
+  const log = input.log ?? (() => {});
+  const logBuf: string[] = [];
+  const pushLog = (msg: string) => { logBuf.push(msg); log(msg); };
+
+  const { exportDir, voiceoverPath, totalDuration, segments, backgroundAudioPath, workDir, outputPath, templateParams: tp } = input;
+  const hasBackgroundAudio = !!backgroundAudioPath;
+  const hasVoiceover = !!voiceoverPath;
+
+  const FPS = tp.fps;
+  const WIDTH = tp.width;
+  const HEIGHT = tp.height;
+  const XFADE_DUR = tp.xfadeDur;
+  const FADE_IN_DUR = tp.fadeInDur;
+  const FADE_OUT_DUR = tp.fadeOutDur;
+  const kbVariants = tp.kenBurnsVariants ? KB_VARIANTS.slice(0, Math.min(tp.kenBurnsVariants, KB_VARIANTS.length)) : KB_VARIANTS;
+
+  // Detect GPU
+  pushLog("Detecting GPU support...");
+  const gpu = await detectGpu();
+  const useGpu = gpu.nvenc;
+  pushLog(`  NVENC: ${gpu.nvenc ? "yes" : "no"}, CUDA: ${gpu.cuda ? "yes" : "no"}`);
+
+  const encOpts = useGpu
+    ? `-c:v h264_nvenc -preset p4 -tune hq -rc vbr -cq 20 -maxrate 12M -bufsize 24M -pix_fmt yuv420p`
+    : `-c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p`;
+  const encOptsInter = useGpu
+    ? `-c:v h264_nvenc -preset p1 -tune hq -rc vbr -cq 24 -maxrate 8M -bufsize 16M -pix_fmt yuv420p`
+    : `-c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p`;
+
+  const clipCount = segments.filter((s) => s.kind === "video-clip").length;
+  const imageCount = segments.filter((s) => s.kind === "image").length;
+  pushLog(`\nFFmpeg Flow hybrid render: ${useGpu ? "GPU" : "CPU"}`);
+  pushLog(`  Segments: ${segments.length} (${clipCount} clips, ${imageCount} images)`);
+  pushLog(`  Duration: ${totalDuration.toFixed(2)}s, ${WIDTH}x${HEIGHT}@${FPS}fps`);
+
+  const clipsDir = join(workDir, "flow-clips");
+  await rm(clipsDir, { recursive: true, force: true });
+  await mkdir(clipsDir, { recursive: true });
+
+  try {
+    // 1. Render each segment as a normalized clip
+    pushLog("\nRendering segments...");
+    const segmentPaths: string[] = [];
+    const segmentDurations: number[] = [];
+
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i]!;
+      const segPath = join(clipsDir, `seg-${String(i + 1).padStart(2, "0")}.mp4`);
+      segmentPaths.push(segPath);
+      segmentDurations.push(seg.durationSec);
+      const t1 = Date.now();
+
+      if (seg.kind === "video-clip") {
+        // Normalize video clip: scale + crop to target resolution, set fps
+        const srcPath = join(exportDir, seg.file);
+        pushLog(`  Segment ${i + 1}/${segments.length}: Scene ${seg.order} — video clip (${seg.durationSec.toFixed(2)}s)`);
+        await runCmd(
+          `ffmpeg -y -i "${srcPath}" ` +
+            `-vf "scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},fps=${FPS},format=yuv420p" ` +
+            `${encOptsInter} -an -t ${seg.durationSec} "${segPath}" 2>&1`,
+          { timeout: 120000 },
+        );
+      } else {
+        // Render image with Ken Burns effect
+        const srcPath = join(exportDir, seg.file);
+        const kb = kbVariants[i % kbVariants.length]!;
+        const totalFrames = Math.round(seg.durationSec * FPS);
+        const zExpr = `'${kb.zStart}+(${kb.zEnd - kb.zStart})*on/${totalFrames}'`;
+        const xExpr = `'${kb.xExpr}'`;
+        const yExpr = `'${kb.yExpr}'`;
+        pushLog(`  Segment ${i + 1}/${segments.length}: Scene ${seg.order} — Ken Burns image (${seg.durationSec.toFixed(2)}s)`);
+        await runCmd(
+          `ffmpeg -y -loop 1 -t ${seg.durationSec} -i "${srcPath}" ` +
+            `-filter_complex "scale=${WIDTH * 2}:-1,zoompan=z=${zExpr}:x=${xExpr}:y=${yExpr}:d=${totalFrames}:s=${WIDTH}x${HEIGHT}:fps=${FPS},format=yuv420p" ` +
+            `${encOptsInter} -t ${seg.durationSec} "${segPath}" 2>&1`,
+          { timeout: 120000 },
+        );
+      }
+      pushLog(`    → ${((Date.now() - t1) / 1000).toFixed(1)}s`);
+    }
+
+    // 2. Crossfade all segments together
+    pushLog("\nCrossfading segments...");
+    const timelinePath = join(clipsDir, "flow-timeline.mp4");
+    let timelineDuration: number;
+    const t2 = Date.now();
+
+    if (segmentPaths.length === 1) {
+      timelineDuration = segmentDurations[0]!;
+      await runCmd(`ffmpeg -y -i "${segmentPaths[0]}" -c copy "${timelinePath}" 2>&1`, { timeout: 30000 });
+    } else {
+      const inputs = segmentPaths.map((p) => `-i "${p}"`).join(" ");
+      const filters: string[] = [];
+      let prevLabel = "0:v";
+      let cumulativeDur = segmentDurations[0]!;
+
+      for (let i = 1; i < segmentPaths.length; i++) {
+        const offset = cumulativeDur - XFADE_DUR;
+        const outLabel = i < segmentPaths.length - 1 ? `v${i}` : "vout";
+        filters.push(
+          `[${prevLabel}][${i}:v]xfade=transition=fade:duration=${XFADE_DUR}:offset=${offset.toFixed(3)}[${outLabel}]`,
+        );
+        prevLabel = outLabel;
+        cumulativeDur = offset + segmentDurations[i]!;
+      }
+      timelineDuration = cumulativeDur;
+
+      const filterComplex = filters.join(";");
+      await runCmd(
+        `ffmpeg -y ${inputs} -filter_complex "${filterComplex}" -map "[vout]" ${encOptsInter} "${timelinePath}" 2>&1`,
+        { timeout: 180000 },
+      );
+    }
+    pushLog(`  Timeline → ${((Date.now() - t2) / 1000).toFixed(1)}s (${timelineDuration.toFixed(2)}s)`);
+
+    // 3. Composite: pad + fade + audio
+    pushLog("\nCompositing final video...");
+    const t3 = Date.now();
+    const fadeOutStart = totalDuration - FADE_OUT_DUR;
+    const padding = Math.max(0, totalDuration - timelineDuration);
+    if (padding > 0.01) pushLog(`  Padding timeline by ${padding.toFixed(2)}s`);
+
+    const videoFadeFilter = `[0:v]tpad=stop_mode=clone:stop_duration=${padding.toFixed(3)},fade=t=in:st=0:d=${FADE_IN_DUR},fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${FADE_OUT_DUR}[v]`;
+
+    const BG_VOLUME = 0.28;
+    const bgAudioFilter = (idx: number) =>
+      `[${idx}:a]atrim=0:${totalDuration.toFixed(3)},asetpts=PTS-STARTPTS,volume=${BG_VOLUME},afade=t=out:st=${fadeOutStart.toFixed(3)}:d=${FADE_OUT_DUR}[bgm]`;
+
+    if (hasVoiceover && hasBackgroundAudio) {
+      pushLog("  Audio: voiceover + background music");
+      const filter = [videoFadeFilter, bgAudioFilter(2), `[1:a][bgm]amix=inputs=2:duration=first:normalize=0:weights=1 1[aout]`].join(";");
+      await runCmd(
+        `ffmpeg -y -i "${timelinePath}" -i "${voiceoverPath}" -i "${backgroundAudioPath}" ` +
+          `-filter_complex "${filter}" -map "[v]" -map "[aout]" ` +
+          `${encOpts} -c:a aac -b:a 192k -t ${totalDuration} -movflags +faststart "${outputPath}" 2>&1`,
+        { timeout: 300000 },
+      );
+    } else if (hasVoiceover) {
+      pushLog("  Audio: voiceover only");
+      await runCmd(
+        `ffmpeg -y -i "${timelinePath}" -i "${voiceoverPath}" ` +
+          `-filter_complex "${videoFadeFilter}" -map "[v]" -map 1:a ` +
+          `${encOpts} -c:a aac -b:a 192k -t ${totalDuration} -movflags +faststart "${outputPath}" 2>&1`,
+        { timeout: 300000 },
+      );
+    } else if (hasBackgroundAudio) {
+      pushLog("  Audio: background music only");
+      const filter = [videoFadeFilter, bgAudioFilter(1), `[bgm]amix=inputs=1:duration=first:normalize=0[aout]`].join(";");
+      await runCmd(
+        `ffmpeg -y -i "${timelinePath}" -i "${backgroundAudioPath}" ` +
+          `-filter_complex "${filter}" -map "[v]" -map "[aout]" ` +
+          `${encOpts} -c:a aac -b:a 192k -t ${totalDuration} -movflags +faststart "${outputPath}" 2>&1`,
+        { timeout: 300000 },
+      );
+    } else {
+      pushLog("  Audio: none");
+      await runCmd(
+        `ffmpeg -y -i "${timelinePath}" ` +
+          `-filter_complex "${videoFadeFilter}" -map "[v]" ` +
+          `${encOpts} -t ${totalDuration} -movflags +faststart "${outputPath}" 2>&1`,
+        { timeout: 300000 },
+      );
+    }
+    pushLog(`  Final composite → ${((Date.now() - t3) / 1000).toFixed(1)}s`);
 
     // 4. Probe output
     const success = await exists(outputPath);

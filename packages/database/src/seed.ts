@@ -144,6 +144,38 @@ const MARTA_BIBLE = {
 	role: "recurring adult character, host of a cooking/ASMR-style animated series set in a village kitchen",
 };
 
+// D021: Musachi — character for the Flow auto-generation channel.
+// The character exists in the Google Flow project (not as local reference images).
+// The bible is used by the story/scene planner to generate consistent prompts;
+// the FlowAdapter selects the character by name in the Flow UI.
+const MUSACHI_BIBLE = {
+	name: "Musachi",
+	age: 25,
+	gender: "male",
+	background: "Japanese, urban creative",
+	skinTone: "light, neutral undertones",
+	eyeColor: "dark brown",
+	hairColor: "black, slightly tousled",
+	hairStyle: "medium-short, textured, casual",
+	build: "slim, average height",
+	faceShape: "oval, soft jawline",
+	personality: [
+		"curious",
+		"calm",
+		"observant",
+		"thoughtful",
+		"quietly confident",
+	],
+	wardrobe: {
+		top: "minimalist black or white t-shirt, occasionally a light jacket",
+		bottom: "dark slim trousers or jeans",
+		shoes: "clean white sneakers",
+	},
+	visualStyle: "cinematic, natural light, shallow depth of field, film-like color grade",
+	expression: "relaxed, contemplative, faintly curious",
+	role: "recurring character for cinematic short-form videos generated via Google Flow",
+};
+
 // === Channel definitions ===
 
 interface CharacterSeed {
@@ -175,6 +207,14 @@ interface ChannelSeed {
 	duplicateAdjudicationEnabled: boolean;
 	videoGenerationEnabled: boolean;
 	videoTemplate: string;
+	/** D020: Optional background audio file to copy from media/ into the artifact store. */
+	backgroundAudioFile?: string;
+	/** D021: Flow project URL for auto-generation via CDP. */
+	flowProjectUrl?: string;
+	/** D021: CDP endpoint (default http://127.0.0.1:9222). */
+	flowCdpEndpoint?: string;
+	/** D021: Inter-request delay in ms (default 5000). */
+	flowInterRequestDelayMs?: number;
 	characters: CharacterSeed[];
 	activeCharacterName?: string;
 }
@@ -251,6 +291,7 @@ const CHANNELS: ChannelSeed[] = [
 		duplicateAdjudicationEnabled: false,
 		videoGenerationEnabled: true,
 		videoTemplate: "gameplay-with-image-scenes",
+		backgroundAudioFile: "background.mp3",
 		characters: [],
 	},
 	{
@@ -283,6 +324,41 @@ const CHANNELS: ChannelSeed[] = [
 			{ name: "Marta", role: "protagonist", bible: MARTA_BIBLE },
 		],
 		activeCharacterName: "Marta",
+	},
+	{
+		name: "Musachi Cinematic Shorts",
+		slug: "musachi-cinematic-shorts",
+		niche:
+			"Cinematic short-form stories following Musachi, a young Japanese creative, through quiet moments of urban life — morning routines, walks through the city, encounters with strangers, reflections at golden hour. Each video is a 30-second mood piece with voice-over narration. Generated via Google Flow (auto CDP mode) as 4-second video clips with hybrid static images.",
+		locale: "en-US",
+		contentTypes: ["fictional_story", "motivational", "commentary"],
+		targetDurationSeconds: 30,
+		sceneMin: 4,
+		sceneMax: 7,
+		storyStyle:
+			"cinematic, atmospheric, minimal — show the moment, let the image breathe, narration is sparse and evocative. No exposition, no conflict resolution, just mood and movement.",
+		visualStyle:
+			"Cinematic, natural light, shallow depth of field, film-like color grade. Golden hour, neon-lit evenings, rain-slicked streets. Japanese urban aesthetics — clean lines, soft textures, muted palette with warm highlights.",
+		imageProvider: "flow",
+		ttsProvider: "kokoro",
+		ttsVoiceId: "af_heart",
+		aspectRatio: "9:16",
+		approvalEnabled: true,
+		llmConfig: DEEPSEEK_LLM_CONFIG,
+		imageModelCharacter: "flow",
+		imageModelNonCharacter: "flow",
+		researchEnabled: false,
+		duplicateAdjudicationEnabled: false,
+		videoGenerationEnabled: true,
+		videoTemplate: "flow-auto",
+		// D021: Flow config — the Musachi test project from S15 spike
+		flowProjectUrl: "https://labs.google/fx/tools/flow/project/28a694c1-afc4-4327-b964-2d3416fc716c",
+		flowCdpEndpoint: "http://127.0.0.1:9222",
+		flowInterRequestDelayMs: 5000,
+		characters: [
+			{ name: "Musachi", role: "protagonist", bible: MUSACHI_BIBLE },
+		],
+		activeCharacterName: "Musachi",
 	},
 ];
 
@@ -494,8 +570,9 @@ async function seedChannel(
       story_style, visual_style, image_provider, tts_provider, tts_voice_id, aspect_ratio,
       approval_enabled, llm_config, image_model_character, image_model_non_character,
       research_enabled, duplicate_adjudication_enabled, video_generation_enabled, video_template,
+      flow_project_url, flow_cdp_endpoint, flow_inter_request_delay_ms,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
 		channelId,
 		ch.name,
@@ -520,9 +597,30 @@ async function seedChannel(
 		ch.duplicateAdjudicationEnabled ? 1 : 0,
 		ch.videoGenerationEnabled ? 1 : 0,
 		ch.videoTemplate,
+		ch.flowProjectUrl ?? null,
+		ch.flowCdpEndpoint ?? null,
+		ch.flowInterRequestDelayMs ?? null,
 		ts,
 		ts,
 	);
+
+	// D020: Copy background audio file if specified
+	if (ch.backgroundAudioFile) {
+		const mediaDir = join(process.cwd(), "media");
+		const bgSourcePath = join(mediaDir, ch.backgroundAudioFile);
+		if (existsSync(bgSourcePath)) {
+			const bgDir = join(artifactStore, "channels", channelId);
+			if (!existsSync(bgDir)) {
+				await mkdir(bgDir, { recursive: true });
+			}
+			const bgDestPath = join(bgDir, "background-audio.mp3");
+			await copyFile(bgSourcePath, bgDestPath);
+			await db.prepare("UPDATE channels SET background_audio_path = ? WHERE id = ?").run(bgDestPath, channelId);
+			console.log(`    Background audio: ${ch.backgroundAudioFile} copied`);
+		} else {
+			console.warn(`    WARNING: Background audio file not found: ${bgSourcePath}`);
+		}
+	}
 
 	// === Create characters ===
 	for (const charSeed of ch.characters) {

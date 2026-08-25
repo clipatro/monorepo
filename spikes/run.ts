@@ -24,6 +24,7 @@ const allSpikes: Record<string, () => Promise<SpikeResult>> = {
   "s11": () => import("./s11-runware-flux2-klein-4b.ts").then((m) => m.run()),
   "s12": () => import("./s12-optimized-comparison.ts").then((m) => m.run()),
   "s13": () => import("./s13-hyperframes-video.ts").then((m) => m.run(process.argv[3])),
+  "s15": () => import("./s15-google-flow-cdp.ts").then((m) => m.run()),
 };
 
 const toRun = spikeIds.length > 0 ? spikeIds : Object.keys(allSpikes);

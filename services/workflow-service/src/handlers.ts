@@ -61,9 +61,23 @@ async function postJson(
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(body),
 	});
-	const data = (await res.json()) as Record<string, unknown>;
+	// Read the response body as text first, then try to parse as JSON.
+	// This avoids "Failed to parse JSON" errors when the server returns a
+	// non-JSON error body (e.g. HTML error page or plain text), and surfaces
+	// the real error message instead.
+	const text = await res.text();
+	let data: Record<string, unknown>;
+	try {
+		data = JSON.parse(text) as Record<string, unknown>;
+	} catch {
+		if (!res.ok) {
+			throw new Error(`${url} returned ${res.status}: ${text.slice(0, 500)}`);
+		}
+		throw new Error(`${url} returned non-JSON response: ${text.slice(0, 500)}`);
+	}
 	if (!res.ok) {
-		throw new Error(`${url} returned ${res.status}: ${JSON.stringify(data)}`);
+		const errMsg = (data.error as string) ?? JSON.stringify(data);
+		throw new Error(`${url} returned ${res.status}: ${errMsg}`);
 	}
 	return data;
 }
@@ -304,6 +318,7 @@ export const generateCandidatesHandler: StepHandler = async (
 		ctx.inputData.contentType) as ContentType | undefined;
 	const novelty = ctx.dependencyResults.novelty_context;
 	const research = ctx.dependencyResults.research;
+	const concept = classification?.concept as StoryConcept | undefined;
 
 	ctx.log(`Generating candidates for topic: ${topic}`);
 
@@ -320,6 +335,10 @@ export const generateCandidatesHandler: StepHandler = async (
 			candidateCount: 3,
 			research: research as Record<string, unknown> | undefined,
 			storyline: ctx.inputData.storyline as string | undefined,
+			// Pass the creative direction from the concept director so the
+			// story generator has the creative angle, tone, and character
+			// dynamics decided during classification.
+			...(concept?.creativeDirection ? { creativeDirection: concept.creativeDirection } : {}),
 			runId: ctx.runId,
 			stepId: ctx.stepId,
 			...stepLlm(ctx, "story_candidates"),
@@ -940,6 +959,8 @@ export const packageAssemblyHandler: StepHandler = async (
 
 	const tmpl = getTemplate(ctx);
 	const isClipTemplate = tmpl?.scenePlan.sceneType === "video-clip-scene";
+	const isFlowTemplate = tmpl?.scenePlan.sceneType === "flow-hybrid";
+	const hasGameplay = tmpl?.assets.gameplayVideo?.required === true;
 
 	try {
 		let result: Record<string, unknown>;
@@ -952,7 +973,7 @@ export const packageAssemblyHandler: StepHandler = async (
 			result = await postJson(`${VOICE_SERVICE_URL}/package`, {
 				runId: ctx.runId,
 				storyId,
-				includeGameplay: !isClipTemplate,
+				includeGameplay: hasGameplay,
 			});
 		} catch (pkgErr) {
 			const pkgMsg = pkgErr instanceof Error ? pkgErr.message : String(pkgErr);
@@ -1067,6 +1088,153 @@ export const packageAssemblyHandler: StepHandler = async (
 			}
 		}
 
+		// D021: For Flow templates, copy uploaded clips/images into the export
+		// directory and add them to the manifest. The flow_upload step result
+		// contains { clipOrder: number[], uploadedAssetIds: string[] }.
+		// The assets are stored in the `assets` table with file_path pointing
+		// to the artifact store.
+		if (isFlowTemplate) {
+			const flowUploadRow = await db
+				.prepare(`
+					SELECT result_data FROM workflow_steps
+					WHERE run_id = ? AND step_type = 'flow_upload' AND status = 'completed'
+				`)
+				.get(ctx.runId) as { result_data: string } | null;
+
+			if (flowUploadRow?.result_data) {
+				const flowData = JSON.parse(flowUploadRow.result_data) as {
+					clipOrder?: number[];
+					uploadedAssetIds?: string[];
+				};
+
+				if (flowData.uploadedAssetIds && flowData.uploadedAssetIds.length > 0) {
+					const artifactBase = process.env.ARTIFACT_STORE_PATH ?? "./data/artifacts";
+					const exportDir = `${artifactBase}/channels/${ctx.channelId}/runs/${ctx.runId}/export`;
+
+					const fs = await import("node:fs/promises");
+					await fs.mkdir(exportDir, { recursive: true });
+
+					// Fetch asset file paths from the DB
+					const placeholders = flowData.uploadedAssetIds.map(() => "?").join(",");
+					const assetRows = await db.prepare(
+						`SELECT id, scene_id, type, file_path FROM assets WHERE id IN (${placeholders})`,
+					).all(...flowData.uploadedAssetIds) as Array<{
+						id: string;
+						scene_id: string;
+						type: string;
+						file_path: string;
+					}>;
+
+					// Build a map of sceneId → asset for manifest
+					const sceneAssetMap = new Map<string, { type: string; filePath: string }>();
+					for (const row of assetRows) {
+						sceneAssetMap.set(row.scene_id, { type: row.type, filePath: row.file_path });
+					}
+
+					// Copy assets into the export directory
+					const clips: Array<{ order: number; file: string; type: string }> = [];
+					const images: Array<{ order: number; file: string }> = [];
+
+					// Get scenes to map sceneId → order
+					const scenes = await db.prepare(
+						`SELECT id, "order" FROM scenes WHERE story_id = ? ORDER BY "order" ASC`,
+					).all(storyId) as Array<{ id: string; order: number }>;
+
+					for (const scene of scenes) {
+						const asset = sceneAssetMap.get(scene.id);
+						if (!asset) continue;
+
+						const ext = asset.filePath.split(".").pop()?.toLowerCase() ?? "bin";
+						const fileName = `scene-${String(scene.order).padStart(2, "0")}.${ext}`;
+						const destPath = `${exportDir}/${fileName}`;
+
+						try {
+							await fs.copyFile(asset.filePath, destPath);
+						} catch {
+							ctx.log(`WARNING: Failed to copy asset for scene ${scene.order}`);
+						}
+
+						if (asset.type === "video_clip") {
+							clips.push({ order: scene.order, file: fileName, type: "video-clip" });
+						} else {
+							images.push({ order: scene.order, file: fileName });
+						}
+					}
+
+					// Apply clip order from the flow_upload approval data
+					const orderedClips = (flowData.clipOrder ?? clips.map((c) => c.order))
+						.map((order) => clips.find((c) => c.order === order))
+						.filter((c): c is { order: number; file: string; type: string } => c !== undefined);
+
+					// Build a sceneOrder → durationSec map from the imageTimeline
+					// (produced by voice-service with timing for all scenes)
+					const imageTimeline = (manifest.scenes as Record<string, unknown>)?.imageTimeline as
+						Array<{ scene: number; imageDurationSec: string }> | undefined;
+					const durationMap = new Map<number, string>();
+					if (imageTimeline) {
+						for (const t of imageTimeline) {
+							durationMap.set(t.scene, t.imageDurationSec);
+						}
+					}
+
+					// Update manifest
+					const manifestScenes = (manifest.scenes as Record<string, unknown>) ?? {};
+					manifestScenes.clips = orderedClips.map((c) => ({
+						order: c.order,
+						file: c.file,
+						type: c.type,
+					}));
+					manifestScenes.images = images.map((i) => ({
+						order: i.order,
+						file: i.file,
+					}));
+					manifestScenes.clipTimeline = orderedClips.map((c) => ({
+						scene: c.order,
+						clipFile: c.file,
+						durationSec: durationMap.get(c.order) ?? "4",
+					}));
+					manifest.scenes = manifestScenes;
+					manifest.hasVoiceover = hasVoiceover;
+
+					// Write manifest.json and create/update the export ZIP
+					try {
+						const { execSync } = await import("node:child_process");
+						await fs.writeFile(
+							`${exportDir}/manifest.json`,
+							JSON.stringify(manifest, null, 2),
+						);
+						const zipPath = packagePath ?? `${exportDir}/export.zip`;
+						try { await fs.unlink(zipPath); } catch { /* ok if not exists */ }
+						execSync(`cd "${exportDir}" && zip -r -0 "${zipPath}" .`, {
+							maxBuffer: 200 * 1024 * 1024,
+						});
+						ctx.log(`Built export package with Flow clips/images: ${zipPath}`);
+						return {
+							success: true,
+							outputData: {
+								storyId,
+								packagePath: zipPath,
+								manifest,
+								files: result.files,
+							},
+						};
+					} catch (zipErr) {
+						ctx.log(`WARNING: Failed to build export ZIP: ${zipErr}`);
+						return {
+							success: true,
+							outputData: {
+								storyId,
+								packagePath: null,
+								exportDir,
+								manifest,
+								files: result.files,
+							},
+						};
+					}
+				}
+			}
+		}
+
 		ctx.log(`Export package assembled: ${packagePath}`);
 
 		return {
@@ -1108,19 +1276,27 @@ export const videoGenerationHandler: StepHandler = async (
 
 	// D017: Dispatch to the right render endpoint based on the template
 	const tmpl = getTemplate(ctx);
-	const isClipTemplate = tmpl?.scenePlan.sceneType === "video-clip-scene";
-	const renderEndpoint = isClipTemplate ? "/render-clips" : "/generate";
+	const sceneType = tmpl?.scenePlan.sceneType;
+	const isClipTemplate = sceneType === "video-clip-scene";
+	const isFlowTemplate = sceneType === "flow-hybrid";
+	const renderEndpoint = isFlowTemplate ? "/render-flow" : isClipTemplate ? "/render-clips" : "/generate";
 
-	// For clip templates, pass the template config so the renderer knows the layout
+	// For clip/flow templates, pass the template config so the renderer knows the layout
 	const requestBody: Record<string, unknown> = {
 		runId: ctx.runId,
 		apiGatewayUrl: "http://localhost:3000",
 	};
-	if (isClipTemplate && tmpl) {
+	if ((isClipTemplate || isFlowTemplate) && tmpl) {
 		requestBody.templateConfig = tmpl;
 		// Check if voiceover was generated
 		const voiceGen = ctx.dependencyResults.voice_generation;
 		requestBody.hasVoiceover = !voiceGen?.skipped;
+	}
+
+	// D020: Pass background audio URL if the channel has one configured
+	if (ctx.channelConfig.backgroundAudioPath) {
+		requestBody.backgroundAudioUrl = `${requestBody.apiGatewayUrl}/api/channels/${ctx.channelId}/background-audio`;
+		ctx.log(`Channel has background audio — will be mixed into the video`);
 	}
 
 	try {
@@ -1182,7 +1358,10 @@ export const clipPromptCompilationHandler: StepHandler = async (
 		};
 	}
 
-	// Fetch scene_plan results from the DB
+	// Fetch scene_plan results from the DB to get the storyId and scene IDs.
+	// The step result only stores { storyId, sceneCount, scenes: [{id, order}] } —
+	// the full scene data (narration, visualEvent, environment, camera, lighting)
+	// lives in the `scenes` table, which we query below.
 	const db = getDb();
 	const scenePlanRow = await db
 			.prepare(`
@@ -1192,25 +1371,71 @@ export const clipPromptCompilationHandler: StepHandler = async (
 	const scenePlan = scenePlanRow?.result_data
 		? (JSON.parse(scenePlanRow.result_data) as {
 				storyId?: string;
-				scenes?: Array<{
-					id: string;
-					order: number;
-					narrationText?: string;
-					visualEvent?: string;
-					environment?: string;
-					cameraFraming?: string;
-					lightingAndMood?: string;
-					characterRole?: string;
-					expectedDurationSeconds?: number;
-				}>;
+				scenes?: Array<{ id: string; order: number }>;
 			})
 		: {};
-	const scenes = scenePlan.scenes;
+	const sceneRefs = scenePlan.scenes;
+	const storyId = scenePlan.storyId;
 
-	if (!scenes || scenes.length === 0) {
+	if (!sceneRefs || sceneRefs.length === 0) {
 		return {
 			success: false,
 			error: "No scenes found — scene_plan must complete first",
+			retryable: false,
+		};
+	}
+
+	// Query the scenes table for the full scene data (narration, visual event,
+	// environment, camera framing, lighting, duration). The scene_plan step
+	// only stores {id, order} in its result_data — the rich fields are
+	// persisted by image-service when it inserts scenes into the DB.
+	const scenes: Array<{
+		id: string;
+		order: number;
+		narrationText?: string;
+		visualEvent?: string;
+		environment?: string;
+		cameraFraming?: string;
+		lightingAndMood?: string;
+		characterRole?: string;
+		expectedDurationSeconds?: number;
+	}> = [];
+	for (const ref of sceneRefs) {
+		const row = await db.prepare(
+			`SELECT id, "order", narration_text, visual_event, environment,
+			        camera_framing, lighting_and_mood, character_role,
+			        expected_duration_seconds
+			   FROM scenes WHERE id = ?`,
+		).get(ref.id) as {
+			id: string;
+			order: number;
+			narration_text: string | null;
+			visual_event: string | null;
+			environment: string | null;
+			camera_framing: string | null;
+			lighting_and_mood: string | null;
+			character_role: string | null;
+			expected_duration_seconds: number | null;
+		} | null;
+		if (row) {
+			scenes.push({
+				id: row.id,
+				order: row.order,
+				narrationText: row.narration_text ?? undefined,
+				visualEvent: row.visual_event ?? undefined,
+				environment: row.environment ?? undefined,
+				cameraFraming: row.camera_framing ?? undefined,
+				lightingAndMood: row.lighting_and_mood ?? undefined,
+				characterRole: row.character_role ?? undefined,
+				expectedDurationSeconds: row.expected_duration_seconds ?? undefined,
+			});
+		}
+	}
+
+	if (scenes.length === 0) {
+		return {
+			success: false,
+			error: "No scene records found in database — scene_plan must complete first",
 			retryable: false,
 		};
 	}
@@ -1295,6 +1520,7 @@ export const clipPromptCompilationHandler: StepHandler = async (
 							add("hairstyle", bible.hairStyle);
 							add("build", bible.build);
 							add("canonical wardrobe", bible.wardrobe);
+							add("visual style", bible.visualStyle);
 							characterBlocks.push(
 								`${name} — ${traits.join("; ")}. Role: ${sc.role_in_scene}. Pose: ${sc.pose_and_expression || "natural"}`,
 							);
@@ -1311,26 +1537,36 @@ export const clipPromptCompilationHandler: StepHandler = async (
 			parts.push(`CHARACTERS in this scene:\n${characterBlocks.join("\n")}`);
 		}
 
-		// Build prompt from the scene's visual fields
+		// Build prompt from the scene's visual fields — structured as a
+		// cinematic shot description so the video model gets clear, layered
+		// direction rather than a flat comma-separated list.
+		const visualParts: string[] = [];
 		if (clipFields.includes("visualEvent") && scene.visualEvent) {
-			parts.push(scene.visualEvent);
+			visualParts.push(scene.visualEvent);
 		}
 		if (clipFields.includes("environment") && scene.environment) {
-			parts.push(`Setting: ${scene.environment}`);
+			visualParts.push(`Setting: ${scene.environment}`);
 		}
 		if (clipFields.includes("cameraMovement")) {
 			if (scene.cameraFraming) {
-				parts.push(`Camera: ${scene.cameraFraming}`);
+				visualParts.push(`Camera: ${scene.cameraFraming}`);
 			}
 		}
 		if (clipFields.includes("lightingAndMood") && scene.lightingAndMood) {
-			parts.push(`Lighting: ${scene.lightingAndMood}`);
+			visualParts.push(`Lighting: ${scene.lightingAndMood}`);
 		}
 		if (clipFields.includes("motionDescription") && scene.narrationText) {
-			parts.push(`Action context: ${scene.narrationText}`);
+			visualParts.push(`Action context: ${scene.narrationText}`);
 		}
 
-		const clipPrompt = parts.join(". ");
+		// Assemble: visual style first (consistency), then scene-specific
+		// visual direction, then character info. This gives the video model
+		// a clear hierarchy: look → action → who.
+		if (visualParts.length > 0) {
+			parts.push(visualParts.join(". "));
+		}
+
+		const clipPrompt = parts.join(".\n");
 
 		// Determine clip duration
 		let durationSec = scene.expectedDurationSeconds ?? 6;
@@ -1359,7 +1595,7 @@ export const clipPromptCompilationHandler: StepHandler = async (
 		outputData: {
 			clipPrompts: compiledClips,
 			clipCount: compiledClips.length,
-			storyId: scenePlan.storyId,
+			storyId,
 		},
 	};
 };
@@ -1549,3 +1785,229 @@ export const clipGenerationHandler: StepHandler = async (
 		costUsd: totalCost,
 	};
 };
+
+// === Phase 9 — Google Flow Templates (D021) ===
+
+/**
+ * flow_prompt_compilation — compile Flow-optimized prompts for all scenes.
+ *
+ * Calls image-service /flow-scene-prompts to compile concise, visual prompts
+ * optimized for Google Flow. Stores the compiled prompts in step_data.
+ * Not a paid step (no API call — just prompt compilation).
+ */
+export const flowPromptCompilationHandler: StepHandler = async (
+	ctx: StepHandlerContext,
+): Promise<StepHandlerResult> => {
+	const scenePlanRow = await getDb()
+		.prepare(`
+			SELECT result_data FROM workflow_steps WHERE run_id = ? AND step_type = 'scene_plan' AND status = 'completed'
+		`)
+		.get(ctx.runId) as { result_data: string } | null;
+	const scenePlan = scenePlanRow?.result_data
+		? (JSON.parse(scenePlanRow.result_data) as { storyId?: string })
+		: {};
+	const storyId = scenePlan.storyId;
+
+	if (!storyId) {
+		return {
+			success: false,
+			error: "No storyId found — scene_plan must complete first",
+			retryable: false,
+		};
+	}
+
+	ctx.log(`Compiling Flow prompts for story ${storyId}`);
+
+	const result = await postJson(`${IMAGE_SERVICE_URL}/flow-scene-prompts`, {
+		storyId,
+		aspectRatio: ctx.channelConfig.aspectRatio,
+	});
+
+	const prompts = result.prompts as Array<{
+		sceneId: string;
+		order: number;
+		prompt: string;
+		mediaType: string;
+		expectedFilename: string;
+		isCharacterScene: boolean;
+		characterNames: string[];
+	}>;
+
+	if (!prompts || prompts.length === 0) {
+		return {
+			success: false,
+			error: "No Flow prompts compiled — no scenes found",
+			retryable: false,
+		};
+	}
+
+	ctx.log(`Compiled ${prompts.length} Flow prompts`);
+
+	return {
+		success: true,
+		outputData: {
+			storyId,
+			prompts,
+			promptCount: prompts.length,
+		},
+	};
+};
+
+/**
+ * flow_generation — automated generation via FlowAdapter (CDP).
+ *
+ * D021: Drives Chrome via CDP to generate 4s video clips and/or images per scene.
+ * Iterates scenes serially with delays (per D020). Failed generations are logged
+ * and the user can manually upload during flow_upload.
+ *
+ * This handler calls image-service which hosts the FlowAdapter. The adapter
+ * connects to a signed-in Chrome instance via CDP, navigates to the Flow project
+ * URL, selects characters, configures settings, types the prompt, submits,
+ * intercepts the response, and downloads the media.
+ */
+export const flowGenerationHandler: StepHandler = async (
+	ctx: StepHandlerContext,
+): Promise<StepHandlerResult> => {
+	const flowProjectUrl = ctx.channelConfig.flowProjectUrl;
+	const flowCdpEndpoint = ctx.channelConfig.flowCdpEndpoint ?? "http://127.0.0.1:9222";
+	const interRequestDelayMs = ctx.channelConfig.flowInterRequestDelayMs ?? 5000;
+
+	if (!flowProjectUrl) {
+		return {
+			success: false,
+			error: "No flowProjectUrl configured for channel — required for auto generation",
+			retryable: false,
+		};
+	}
+
+	// Get compiled Flow prompts from the previous step
+	const flowPromptRow = await getDb()
+		.prepare(`
+			SELECT result_data FROM workflow_steps WHERE run_id = ? AND step_type = 'flow_prompt_compilation' AND status = 'completed'
+		`)
+		.get(ctx.runId) as { result_data: string } | null;
+	const flowPromptResult = flowPromptRow?.result_data
+		? (JSON.parse(flowPromptRow.result_data) as {
+				prompts?: Array<{
+					sceneId: string;
+					order: number;
+					prompt: string;
+					mediaType: string;
+					expectedFilename: string;
+					isCharacterScene?: boolean;
+					characterNames?: string[];
+				}>;
+			})
+		: {};
+
+	const prompts = flowPromptResult.prompts;
+	if (!prompts || prompts.length === 0) {
+		return {
+			success: false,
+			error: "No Flow prompts found — flow_prompt_compilation must complete first",
+			retryable: false,
+		};
+	}
+
+	ctx.log(`Generating ${prompts.length} scenes via Flow CDP (project: ${flowProjectUrl})`);
+
+	const results: Array<{
+		sceneId: string;
+		order: number;
+		mediaType: string;
+		status: "generated" | "failed";
+		assetId?: string;
+		error?: string;
+	}> = [];
+
+	let generated = 0;
+	let failed = 0;
+
+	for (const prompt of prompts) {
+		ctx.log(`Generating scene ${prompt.order}/${prompts.length} (${prompt.mediaType})`);
+
+		try {
+			const genResult = await postJson(`${IMAGE_SERVICE_URL}/flow-generate`, {
+				sceneId: prompt.sceneId,
+				runId: ctx.runId,
+				prompt: prompt.prompt,
+				mediaType: prompt.mediaType,
+				flowProjectUrl,
+				cdpEndpoint: flowCdpEndpoint,
+				// Pass the first character name so the FlowAdapter can select
+				// the character in the Flow UI before generating.
+				characterName: prompt.characterNames?.[0],
+			});
+
+			const assetId = genResult.assetId as string;
+			results.push({
+				sceneId: prompt.sceneId,
+				order: prompt.order,
+				mediaType: prompt.mediaType,
+				status: "generated",
+				assetId,
+			});
+			generated++;
+			ctx.log(`Scene ${prompt.order} generated (asset: ${assetId})`);
+		} catch (err) {
+			const errMsg = err instanceof Error ? err.message : String(err);
+			results.push({
+				sceneId: prompt.sceneId,
+				order: prompt.order,
+				mediaType: prompt.mediaType,
+				status: "failed",
+				error: errMsg,
+			});
+			failed++;
+			ctx.log(`Scene ${prompt.order} failed: ${errMsg}`);
+		}
+
+		// Inter-request delay (serialized generation per D020)
+		if (prompt.order < prompts.length) {
+			ctx.log(`Waiting ${interRequestDelayMs}ms before next generation...`);
+			await new Promise((resolve) => setTimeout(resolve, interRequestDelayMs));
+		}
+	}
+
+	ctx.log(`Flow generation complete: ${generated} generated, ${failed} failed`);
+
+	// If all scenes failed, that's a real failure
+	if (generated === 0) {
+		return {
+			success: false,
+			error: "All Flow generations failed",
+			retryable: true,
+		};
+	}
+
+	return {
+		success: true,
+		outputData: {
+			results,
+			generated,
+			failed,
+			totalCostUsd: 0, // D020: Flow uses subscription credits, cost = 0
+		},
+		costUsd: 0,
+	};
+};
+
+/**
+ * flow_upload — human approval checkpoint for uploading Flow-generated media.
+ *
+ * D021: Pauses the run. The frontend shows:
+ *   - Compiled Flow prompts for each scene (copy buttons)
+ *   - Upload dropzone per scene (mp4/png/jpg)
+ *   - Drag-to-reorder clip list
+ *   - For auto mode: shows which scenes were auto-generated + failed scenes
+ *
+ * When the user approves, uploaded files are saved as assets and the run resumes.
+ * The approval result data (clipOrder, uploadedAssetIds) is stored as
+ * result_data on the workflow_steps table by decideApproval, so downstream
+ * steps (voice_generation, package_assembly) can read it.
+ *
+ * This step is registered as a stub handler — the engine pauses the run
+ * before the handler would run, and decideApproval marks the step as
+ * completed with the editedData from the frontend. No handler logic needed.
+ */
+

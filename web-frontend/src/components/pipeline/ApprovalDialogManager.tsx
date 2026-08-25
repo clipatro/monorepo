@@ -15,6 +15,7 @@ import { usePipelineStore } from "@/stores/pipeline-store";
 import { StoryApprovalDialog } from "./StoryApproval";
 import { ScriptApprovalDialog } from "./ScriptApproval";
 import { ImageApprovalDialog } from "./ImageApproval";
+import { FlowUploadDialog } from "./FlowUpload";
 
 /**
  * Classify an approval as "reviewable" (has content to show in a dialog)
@@ -30,6 +31,8 @@ export function isReviewableApproval(
   if (approvalType === "script") return true;
   // image_review has images to review
   if (approvalType === "image") return true;
+  // D021: flow_upload has prompts + upload UI
+  if (approvalType === "flow_upload") return true;
   // budget has no review content
   return false;
 }
@@ -42,6 +45,7 @@ export function approvalLabel(
   if (approvalType === "story" && stepType === "story_approval") return "Review Story";
   if (approvalType === "script") return "Review Script";
   if (approvalType === "image") return "Review Images";
+  if (approvalType === "flow_upload") return "Upload Flow Clips";
   if (approvalType === "budget") return "Budget Approval";
   return `${approvalType} Approval`;
 }
@@ -99,6 +103,17 @@ export function ApprovalDialogManager() {
   if (approval.approvalType === "image") {
     return (
       <ImageApprovalDialog
+        approval={approval}
+        run={selectedRun}
+        open={true}
+        onOpenChange={onOpenChange}
+      />
+    );
+  }
+
+  if (approval.approvalType === "flow_upload") {
+    return (
+      <FlowUploadDialog
         approval={approval}
         run={selectedRun}
         open={true}

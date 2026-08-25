@@ -65,7 +65,7 @@ interface PipelineState {
   refreshSelectedRun: () => Promise<void>;
   refreshRunCost: () => Promise<void>;
   createRun: (input: { channelId: string; topic: string; contentType?: string }) => Promise<RunDetails>;
-  submitApproval: (approvalId: string, decision: "approved" | "rejected", notes?: string) => Promise<void>;
+  submitApproval: (approvalId: string, decision: "approved" | "rejected", notes?: string, editedData?: Record<string, unknown>) => Promise<void>;
   cancelRun: () => Promise<void>;
   rerunStep: (stepId: string, cascade: boolean) => Promise<void>;
   setShowCreateDialog: (show: boolean) => void;
@@ -236,8 +236,8 @@ export const usePipelineStore = create<PipelineState>((set, get) => ({
     return run;
   },
 
-  submitApproval: async (approvalId, decision, notes) => {
-    const updated = await api.submitApproval(approvalId, decision, notes);
+  submitApproval: async (approvalId, decision, notes, editedData) => {
+    const updated = await api.submitApproval(approvalId, decision, notes, editedData);
     set({ selectedRun: updated });
     get().updateRunInList(updated);
   },

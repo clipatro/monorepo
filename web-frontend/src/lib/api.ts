@@ -48,6 +48,11 @@ export interface Channel {
   duplicateAdjudicationEnabled: boolean;
   videoGenerationEnabled: boolean;
   videoTemplate: string;
+  backgroundAudioPath: string | null;
+  // D021: Flow config
+  flowProjectUrl: string | null;
+  flowCdpEndpoint: string | null;
+  flowInterRequestDelayMs: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -676,6 +681,14 @@ export const api = {
   updateChannel: (id: string, data: Partial<Channel>) => apiFetch<{ channel: Channel }>(`/api/channels/${id}`, { method: "PUT", body: JSON.stringify(data) }).then((r) => r.channel),
   deleteChannel: (id: string) => apiFetch<{ deleted: boolean }>(`/api/channels/${id}`, { method: "DELETE" }),
 
+  // Background audio
+  uploadBackgroundAudio: (id: string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiFetch<{ backgroundAudioPath: string }>(`/api/channels/${id}/background-audio`, { method: "POST", body: formData });
+  },
+  deleteBackgroundAudio: (id: string) => apiFetch<{ deleted: boolean }>(`/api/channels/${id}/background-audio`, { method: "DELETE" }),
+
   // Video Templates
   listVideoTemplates: () => apiFetch<{ templates: VideoTemplateSummary[] }>("/api/video-templates").then((r) => r.templates),
   getVideoTemplate: (id: string) => apiFetch<VideoTemplate>(`/api/video-templates/${id}`),
@@ -871,6 +884,18 @@ export const api = {
     apiFetch<{ assetId: string; status: string; reason: string | null; filePath: string }>("/api/image/reject", { method: "POST", body: JSON.stringify({ assetId, reason }) }),
   getFlowPrompts: (storyId: string, aspectRatio = "9:16") =>
     apiFetch<{ storyId: string; aspectRatio: string; prompts: Array<{ sceneId: string; order: number; prompt: string; expectedFilename: string; isCharacterScene: boolean; model: string }> }>("/api/image/flow-prompts", { method: "POST", body: JSON.stringify({ storyId, aspectRatio }) }),
+  // D021: Flow scene prompts (Flow-optimized)
+  getFlowScenePrompts: (storyId: string, aspectRatio = "9:16") =>
+    apiFetch<{ storyId: string; prompts: Array<{ sceneId: string; order: number; prompt: string; mediaType: string; expectedFilename: string; isCharacterScene: boolean; characterNames: string[] }> }>("/api/image/flow-scene-prompts", { method: "POST", body: JSON.stringify({ storyId, aspectRatio }) }),
+  // D021: Upload video clip or image for a scene
+  uploadFlowClip: (sceneId: string, runId: string, file: File, mediaType: string) => {
+    const formData = new FormData();
+    formData.append("sceneId", sceneId);
+    formData.append("runId", runId);
+    formData.append("file", file);
+    formData.append("mediaType", mediaType);
+    return apiFetch<{ assetId: string; sceneId: string; filePath: string; mediaType: string; mimeType: string; provider: string; model: string }>("/api/image/flow-clip-upload", { method: "POST", body: formData });
+  },
   listScenes: (storyId: string) => apiFetch<{ scenes: Scene[] }>(`/api/image/scenes/${storyId}`).then((r) => r.scenes),
   getAcceptedImages: (storyId: string) =>
     apiFetch<{ storyId: string; images: Array<{ assetId: string; sceneId: string; order: number; filePath: string; mimeType: string; width: number; height: number; checksum: string; provider: string; model: string; costUsd: number; isCharacterScene: boolean; createdAt: string }> }>(`/api/image/scenes/${storyId}/accepted-images`).then((r) => r.images),

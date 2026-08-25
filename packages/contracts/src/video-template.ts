@@ -133,8 +133,8 @@ export interface ClipDurationRange {
 }
 
 export interface TemplateScenePlan {
-  /** "image-scene" or "video-clip-scene". */
-  sceneType: "image-scene" | "video-clip-scene";
+  /** "image-scene", "video-clip-scene", or "flow-hybrid" (Phase 9). */
+  sceneType: "image-scene" | "video-clip-scene" | "flow-hybrid";
   /** Whether each scene needs an image. */
   imageRequirement: boolean;
   /** Fields the scene planner should populate for clip prompts. */
@@ -143,6 +143,8 @@ export interface TemplateScenePlan {
   clipDurationSeconds?: ClipDurationRange;
   /** Fields the scene planner should populate for image visual plans. */
   visualPlanFields?: string[];
+  /** Max 4s video clips per video (Phase 9 — Flow templates, default 7). */
+  maxClips?: number;
 }
 
 // === Pipeline ===

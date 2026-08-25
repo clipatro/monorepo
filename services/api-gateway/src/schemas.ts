@@ -29,6 +29,10 @@ export const createChannelSchema = z.object({
   duplicateAdjudicationEnabled: z.boolean().default(true),
   videoGenerationEnabled: z.boolean().default(false),
   videoTemplate: z.string().default("gameplay-with-image-scenes"),
+  // D021: Flow config
+  flowProjectUrl: z.string().url().nullable().optional(),
+  flowCdpEndpoint: z.string().optional(),
+  flowInterRequestDelayMs: z.number().int().min(0).optional(),
 });
 
 export const updateChannelSchema = createChannelSchema.partial();

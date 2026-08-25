@@ -107,6 +107,15 @@ services:
       PORT: 3003
       ARTIFACT_STORE_PATH: /app/data/artifacts
       DRY_RUN_MEDIA_PATH: /app/media/dry-run
+      RUNNING_IN_DOCKER: "true"
+      # D021: Chrome CDP runs on the host at 127.0.0.1:9222.
+      # A socat forwarder on the host (0.0.0.0:9223 → 127.0.0.1:9222) makes it
+      # reachable from Docker. The FlowAdapter resolves host.docker.internal
+      # to an IP (Chrome rejects non-IP Host headers).
+      FLOW_CDP_PORT: "9223"
+    # D021: Allow image-service to reach Chrome CDP running on the host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
   # === Voice Service ===

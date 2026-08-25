@@ -144,13 +144,14 @@ export function registerScenePlanRoutes(app: Hono, config: AppConfig, client: Ll
           INSERT INTO scenes (
             id, story_id, "order", story_purpose, narration_text, visual_event,
             character_role, pose_and_expression, environment, camera_framing,
-            lighting_and_mood, expected_duration_seconds, image_requirement, source_claim_ids
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            lighting_and_mood, expected_duration_seconds, image_requirement, source_claim_ids, media_type
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           id, storyId, s.order, s.storyPurpose, s.narrationText, s.visualEvent,
           s.characterRole, s.poseAndExpression, s.environment, s.cameraFraming,
           s.lightingAndMood, s.expectedDurationSeconds, s.imageRequirement,
           JSON.stringify(s.sourceClaimIds ?? []),
+          s.mediaType ?? "video-clip",
         );
         scenes.push({ id, order: s.order });
 

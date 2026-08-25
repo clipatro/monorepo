@@ -2,6 +2,10 @@ import type { Hono } from "@automation/server";
 import type { AppConfig } from "@automation/server";
 import { getDb } from "@automation/database";
 import type { ChannelRow } from "@automation/database";
+import { loadConfig } from "@automation/config";
+import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
 
 import { createChannelSchema, updateChannelSchema } from "../schemas";
 import { parseChannelRow } from "../parsers";
@@ -128,6 +132,10 @@ export function registerChannelRoutes(app: Hono, _config: AppConfig): void {
     if (data.duplicateAdjudicationEnabled !== undefined) { updates.push("duplicate_adjudication_enabled = ?"); values.push(data.duplicateAdjudicationEnabled ? 1 : 0); }
     if (data.videoGenerationEnabled !== undefined) { updates.push("video_generation_enabled = ?"); values.push(data.videoGenerationEnabled ? 1 : 0); }
     if (data.videoTemplate !== undefined) { updates.push("video_template = ?"); values.push(data.videoTemplate); }
+    // D021: Flow config
+    if (data.flowProjectUrl !== undefined) { updates.push("flow_project_url = ?"); values.push(data.flowProjectUrl as string | null); }
+    if (data.flowCdpEndpoint !== undefined) { updates.push("flow_cdp_endpoint = ?"); values.push(data.flowCdpEndpoint); }
+    if (data.flowInterRequestDelayMs !== undefined) { updates.push("flow_inter_request_delay_ms = ?"); values.push(data.flowInterRequestDelayMs); }
 
     if (updates.length > 0) {
       updates.push("updated_at = now()");
@@ -145,6 +153,71 @@ export function registerChannelRoutes(app: Hono, _config: AppConfig): void {
     const id = c.req.param("id");
     const result = await db.prepare("DELETE FROM channels WHERE id = ?").run(id);
     if (result.changes === 0) return c.json({ error: "Channel not found" }, 404);
+    return c.json({ deleted: true });
+  });
+
+  // === Background audio ===
+
+  // Upload background audio (multipart form data)
+  app.post("/api/channels/:id/background-audio", async (c) => {
+    const db = getDb();
+    const id = c.req.param("id");
+    const channel = await db.prepare("SELECT * FROM channels WHERE id = ?").get(id) as ChannelRow | null;
+    if (!channel) return c.json({ error: "Channel not found" }, 404);
+
+    const formData = await c.req.formData();
+    const file = formData.get("file") as File | null;
+    if (!file) return c.json({ error: "No file provided" }, 400);
+
+    const config = loadConfig("api-gateway");
+    const dir = join(config.artifactStorePath, "channels", id);
+    if (!existsSync(dir)) {
+      await mkdir(dir, { recursive: true });
+    }
+
+    // Use a fixed filename so re-uploads replace the old file
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "mp3";
+    const fileName = `background-audio.${ext}`;
+    const filePath = join(dir, fileName);
+
+    const fileBuffer = await file.arrayBuffer();
+    await Bun.write(filePath, fileBuffer);
+
+    await db.prepare("UPDATE channels SET background_audio_path = ?, updated_at = now() WHERE id = ?").run(filePath, id);
+
+    return c.json({ backgroundAudioPath: filePath }, 201);
+  });
+
+  // Download background audio
+  app.get("/api/channels/:id/background-audio", async (c) => {
+    const db = getDb();
+    const id = c.req.param("id");
+    const channel = await db.prepare("SELECT background_audio_path FROM channels WHERE id = ?").get(id) as { background_audio_path: string | null } | null;
+    if (!channel) return c.json({ error: "Channel not found" }, 404);
+    if (!channel.background_audio_path) return c.json({ error: "No background audio set" }, 404);
+    if (!existsSync(channel.background_audio_path)) return c.json({ error: "Background audio file not found on disk" }, 404);
+
+    const file = Bun.file(channel.background_audio_path);
+    const ext = channel.background_audio_path.split(".").pop()?.toLowerCase() ?? "mp3";
+    const mime = ext === "wav" ? "audio/wav" : ext === "ogg" ? "audio/ogg" : "audio/mpeg";
+    return new Response(file, {
+      headers: {
+        "Content-Type": mime,
+        "Content-Disposition": `attachment; filename="background-audio.${ext}"`,
+      },
+    });
+  });
+
+  // Delete background audio
+  app.delete("/api/channels/:id/background-audio", async (c) => {
+    const db = getDb();
+    const id = c.req.param("id");
+    const channel = await db.prepare("SELECT background_audio_path FROM channels WHERE id = ?").get(id) as { background_audio_path: string | null } | null;
+    if (!channel) return c.json({ error: "Channel not found" }, 404);
+    if (channel.background_audio_path && existsSync(channel.background_audio_path)) {
+      try { await Bun.file(channel.background_audio_path).unlink?.(); } catch { /* non-critical */ }
+    }
+    await db.prepare("UPDATE channels SET background_audio_path = NULL, updated_at = now() WHERE id = ?").run(id);
     return c.json({ deleted: true });
   });
 }

@@ -53,7 +53,7 @@ async function exists(path: string): Promise<boolean> {
 
 export function registerGenerateRoutes(app: Hono, config: AppConfig): void {
   app.post("/generate", zValidator("json", generateSchema), async (c) => {
-    const { runId, apiGatewayUrl, exportDir: explicitDir, fps, quality } = c.req.valid("json");
+    const { runId, apiGatewayUrl, exportDir: explicitDir, fps, quality, backgroundAudioUrl } = c.req.valid("json");
 
     // === Resolve the export directory ===
     let exportDir: string;
@@ -130,6 +130,27 @@ export function registerGenerateRoutes(app: Hono, config: AppConfig): void {
     await mkdir(workDir, { recursive: true });
     const audioMetrics = await normalizeVoiceover(voiceoverSrc, voiceoverDst);
 
+    // === 3b. Download background audio if provided ===
+    let backgroundAudioPath: string | null = null;
+    if (backgroundAudioUrl) {
+      ctx_log(c, `Downloading background audio from ${backgroundAudioUrl}`);
+      try {
+        const bgRes = await fetch(backgroundAudioUrl);
+        if (bgRes.ok) {
+          const bgBuffer = await bgRes.arrayBuffer();
+          const contentType = bgRes.headers.get("Content-Type") ?? "audio/mpeg";
+          const ext = contentType.includes("wav") ? "wav" : contentType.includes("ogg") ? "ogg" : "mp3";
+          backgroundAudioPath = join(workDir, `background.${ext}`);
+          await writeFile(backgroundAudioPath, Buffer.from(bgBuffer));
+          ctx_log(c, `Background audio downloaded (${Math.round(bgBuffer.byteLength / 1024)} KB)`);
+        } else {
+          ctx_log(c, `WARNING: Failed to download background audio: ${bgRes.status} — continuing without it`);
+        }
+      } catch (bgErr) {
+        ctx_log(c, `WARNING: Background audio download failed: ${bgErr instanceof Error ? bgErr.message : String(bgErr)} — continuing without it`);
+      }
+    }
+
     // === 4. Render with FFmpeg ===
     ctx_log(c, `Rendering with FFmpeg (fps=${fps}, quality=${quality})...`);
 
@@ -146,7 +167,8 @@ export function registerGenerateRoutes(app: Hono, config: AppConfig): void {
       voiceoverPath: voiceoverDst,
       totalDuration,
       scenes: renderScenes,
-      gameplayFile: manifest.gameplay.file,
+      gameplayFile: manifest.gameplay?.file,
+      backgroundAudioPath,
       workDir,
       outputPath,
       log: (msg) => ctx_log(c, msg),

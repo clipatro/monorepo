@@ -86,6 +86,9 @@ function estimateStepCost(stepType: StepType): number {
     case "image_generation":
       // 4-8 images at ~$0.067/image (1k tier, standard model)
       return 0.54; // 8 * 0.067, conservative upper bound
+    case "flow_generation":
+      // D021: Flow uses subscription credits, not metered API calls. Cost = 0.
+      return 0;
     case "voice_generation":
       // Kokoro is free; Gemini TTS fallback ~$0.01/segment
       return 0.08; // 8 segments * $0.01, conservative if fallback needed
@@ -696,7 +699,8 @@ export class WorkflowEngine {
              image_model_character, image_model_non_character,
              tts_provider, tts_voice_id, aspect_ratio,
              research_enabled, duplicate_adjudication_enabled,
-             video_generation_enabled
+             video_generation_enabled, background_audio_path,
+             flow_project_url, flow_cdp_endpoint, flow_inter_request_delay_ms
       FROM channels WHERE id = ?
     `).get(channelId) as {
       approval_enabled: number;
@@ -710,6 +714,10 @@ export class WorkflowEngine {
       research_enabled: number;
       duplicate_adjudication_enabled: number;
       video_generation_enabled: number;
+      background_audio_path: string | null;
+      flow_project_url: string | null;
+      flow_cdp_endpoint: string | null;
+      flow_inter_request_delay_ms: number | null;
     } | null;
 
     // Load the channel's active template (merged with overrides)
@@ -743,8 +751,12 @@ export class WorkflowEngine {
           researchEnabled: chRow.research_enabled === 1,
           duplicateAdjudicationEnabled: chRow.duplicate_adjudication_enabled === 1,
           videoGenerationEnabled: tmplVideoGen || chRow.video_generation_enabled === 1,
+          backgroundAudioPath: chRow.background_audio_path ?? null,
           template: mergedTemplate,
           templateId,
+          flowProjectUrl: chRow.flow_project_url ?? null,
+          flowCdpEndpoint: chRow.flow_cdp_endpoint ?? null,
+          flowInterRequestDelayMs: chRow.flow_inter_request_delay_ms ?? 5000,
         }
       : {
           approvalEnabled: true,
@@ -758,8 +770,12 @@ export class WorkflowEngine {
           researchEnabled: true,
           duplicateAdjudicationEnabled: true,
           videoGenerationEnabled: tmplVideoGen,
+          backgroundAudioPath: null,
           template: mergedTemplate,
           templateId,
+          flowProjectUrl: null,
+          flowCdpEndpoint: null,
+          flowInterRequestDelayMs: 5000,
         };
 
     const ctx: StepHandlerContext = {
@@ -1017,6 +1033,7 @@ export class WorkflowEngine {
       case "script_approval": return "script";
       case "image_review": return "image";
       case "similarity_review": return "story";
+      case "flow_upload": return "flow_upload";
       default: return "story";
     }
   }
@@ -1060,6 +1077,10 @@ export class WorkflowEngine {
 
     // script_approval and image_review: no special data needed.
     // Downstream handlers fetch what they need from prior steps directly.
+    // flow_upload: when auto-approved (shouldn't normally happen — uploads
+    // require user interaction), return empty data. The handler will treat
+    // it as "no uploads provided" which is only valid for auto-generation
+    // where all scenes were already generated.
     return { autoApproved: true };
   }
 

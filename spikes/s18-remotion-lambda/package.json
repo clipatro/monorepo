@@ -1,0 +1,33 @@
+{
+  "name": "s18-remotion-lambda",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts CinematicTitle out/video.mp4",
+    "lambda:deploy": "remotion lambda functions deploy",
+    "lambda:site": "remotion lambda sites create src/index.ts --site-name=s18-cinematic",
+    "lambda:render": "remotion lambda render"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.411",
+    "@remotion/cli": "4.0.411",
+    "@remotion/compositor-linux-x64-gnu": "4.0.411",
+    "@remotion/lambda": "4.0.411",
+    "@remotion/licensing": "4.0.411",
+    "@remotion/media-utils": "4.0.411",
+    "@remotion/player": "4.0.411",
+    "@remotion/renderer": "4.0.411",
+    "@remotion/serverless-client": "4.0.411",
+    "@remotion/studio-server": "4.0.411",
+    "@remotion/web-renderer": "4.0.411",
+    "@remotion/webcodecs": "4.0.411",
+    "@remotion/zod-types": "4.0.411",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "remotion": "4.0.411"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.0"
+  }
+}

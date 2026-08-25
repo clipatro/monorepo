@@ -17,6 +17,9 @@ build/
 # Spike outputs (regenerable)
 spikes/*/output/
 spikes/output/
+spikes/**/*.mp4
+spikes/**/*.wav
+spikes/**/*.jpg
 
 # Local artifact store (runtime data, not source)
 artifacts/
@@ -27,7 +30,7 @@ videos/
 docs/
 chrome-headless-shell/
 media/gameplay/
-
+spike
 # SQLite databases
 *.sqlite
 *.sqlite-journal

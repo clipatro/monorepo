@@ -25,6 +25,8 @@ interface ScenePlanItem {
   sourceClaimIds: string[];
   /** Multi-character assignments for this scene (Phase 7). */
   characters?: SceneCharacter[];
+  /** D021: Media type for flow-hybrid scenes ("video-clip" or "image"). */
+  mediaType?: "video-clip" | "image";
 }
 
 interface CompiledPrompt {

@@ -49,11 +49,15 @@ export type StepType =
   | "voice_generation"
   | "audio_timing"
   | "package_assembly"
-  | "video_generation";
+  | "video_generation"
+  // Phase 9 — Google Flow Templates (D021)
+  | "flow_prompt_compilation"
+  | "flow_generation"
+  | "flow_upload";
 
 // === Approval types ===
 
-export type ApprovalType = "story" | "script" | "image" | "budget";
+export type ApprovalType = "story" | "script" | "image" | "budget" | "flow_upload";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
@@ -242,6 +246,32 @@ export const PIPELINE_GRAPH: PipelineNode[] = [
     service: "video-service",
     dependsOn: ["package_assembly"],
     skippable: true,
+  },
+  // Phase 9 — Google Flow Templates (D021)
+  {
+    type: "flow_prompt_compilation",
+    label: "Flow Prompt Compilation",
+    requiresApproval: false,
+    isPaid: false,
+    service: "image-service",
+    dependsOn: ["script_approval"],
+  },
+  {
+    type: "flow_generation",
+    label: "Flow Generation",
+    requiresApproval: false,
+    isPaid: true,
+    service: "image-service",
+    dependsOn: ["flow_prompt_compilation"],
+    maxRetries: 2,
+  },
+  {
+    type: "flow_upload",
+    label: "Flow Upload & Arrange",
+    requiresApproval: true,
+    isPaid: false,
+    service: null,
+    dependsOn: ["flow_prompt_compilation"],
   },
 ];
 

@@ -48,6 +48,8 @@ interface ApprovalDialogProps {
 	onReject?: () => void | Promise<void>;
 	/** Shows a spinner on the approve button and disables both */
 	approving?: boolean;
+	/** Disable the approve button (e.g. when no selection made yet) */
+	approveDisabled?: boolean;
 	/** Dialog max width class */
 	maxWidth?: string;
 	children: React.ReactNode;
@@ -64,6 +66,7 @@ export function ApprovalDialog({
 	onApprove,
 	onReject,
 	approving = false,
+	approveDisabled = false,
 	maxWidth = "max-w-4xl",
 	children,
 }: ApprovalDialogProps) {
@@ -97,7 +100,7 @@ export function ApprovalDialog({
 							{rejectLabel}
 						</Button>
 					)}
-					<Button onClick={onApprove} disabled={approving}>
+					<Button onClick={onApprove} disabled={approving || approveDisabled}>
 						{approving ? (
 							<Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
 						) : (

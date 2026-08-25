@@ -1,0 +1,123 @@
+{
+  "id": "flow-auto",
+  "name": "Flow Auto (CDP Automated)",
+  "description": "Google Flow automated generation template. The platform drives Flow via Chrome DevTools Protocol (CDP) to generate 4s video clips and/or static images per scene (hybrid mode). Requires a signed-in Chrome instance with CDP attached (see flow-chrome.sh). Accepts a Flow project URL in channel config. After auto-generation, user can download results and re-upload if video generation is supported. Failed auto-generations can be manually uploaded as fallback. Max 7 four-second clips per video.",
+  "version": 1,
+  "config": {
+    "layout": {
+      "aspectRatio": "9:16",
+      "width": 1080,
+      "height": 1920,
+      "regions": [
+        {
+          "id": "clips",
+          "slot": "full",
+          "x": 0,
+          "y": 0,
+          "width": 1080,
+          "height": 1920,
+          "type": "video-sequence",
+          "transition": "crossfade",
+          "transitionDuration": 0.5,
+          "zIndex": 1
+        }
+      ],
+      "fadeIn": {
+        "duration": 1.0
+      },
+      "fadeOut": {
+        "duration": 1.0
+      }
+    },
+    "assets": {
+      "videoClips": {
+        "required": true,
+        "perScene": true,
+        "source": "ai-generation",
+        "purpose": "scene-visual"
+      },
+      "images": {
+        "required": false,
+        "perScene": true,
+        "source": "ai-generation",
+        "purpose": "scene-visual"
+      },
+      "voiceover": {
+        "required": true,
+        "source": "tts",
+        "role": "primary-audio"
+      },
+      "captions": {
+        "required": true,
+        "format": "srt",
+        "precision": "scene-level"
+      }
+    },
+    "scenePlan": {
+      "sceneType": "flow-hybrid",
+      "imageRequirement": true,
+      "clipPromptFields": [
+        "visualEvent",
+        "environment",
+        "cameraFraming",
+        "lightingAndMood",
+        "poseAndExpression"
+      ],
+      "clipDurationSeconds": {
+        "min": 4,
+        "max": 4
+      },
+      "maxClips": 7
+    },
+    "pipeline": {
+      "steps": {
+        "concept_intake": { "enabled": true, "dependsOn": [] },
+        "content_classification": { "enabled": true, "dependsOn": ["concept_intake"] },
+        "research": { "enabled": true, "dependsOn": ["content_classification"] },
+        "novelty_context": { "enabled": true, "dependsOn": ["content_classification"] },
+        "generate_candidates": { "enabled": true, "dependsOn": ["novelty_context"] },
+        "duplicate_detection": { "enabled": true, "dependsOn": ["generate_candidates"] },
+        "story_approval": { "enabled": true, "dependsOn": ["duplicate_detection"] },
+        "scene_plan": { "enabled": true, "required": true, "dependsOn": ["story_approval"] },
+        "script_approval": { "enabled": true, "dependsOn": ["scene_plan"] },
+        "image_prompt_compilation": { "enabled": false },
+        "image_generation": { "enabled": false },
+        "image_review": { "enabled": false },
+        "clip_prompt_compilation": { "enabled": false },
+        "clip_generation": { "enabled": false },
+        "flow_prompt_compilation": { "enabled": true, "required": true, "dependsOn": ["script_approval"] },
+        "flow_generation": { "enabled": true, "required": true, "dependsOn": ["flow_prompt_compilation"] },
+        "flow_upload": { "enabled": true, "required": true, "dependsOn": ["flow_generation"] },
+        "voice_generation": { "enabled": true, "required": true, "dependsOn": ["script_approval"] },
+        "audio_timing": { "enabled": true, "required": true, "dependsOn": ["voice_generation"] },
+        "package_assembly": { "enabled": true, "required": true, "dependsOn": ["flow_upload", "audio_timing"] },
+        "video_generation": { "enabled": true, "dependsOn": ["package_assembly"] }
+      }
+    },
+    "render": {
+      "renderer": "ffmpeg",
+      "fps": 30,
+      "quality": "high",
+      "encoder": {
+        "gpu": "h264_nvenc",
+        "cpu": "libx264"
+      },
+      "clipStitching": "crossfade"
+    },
+    "providers": {
+      "image": {
+        "defaultProvider": "flow",
+        "defaultModel": "flow",
+        "characterModel": "flow",
+        "nonCharacterModel": "flow"
+      },
+      "voice": {
+        "defaultProvider": "kokoro",
+        "defaultModel": "kokoro-82m",
+        "defaultVoiceId": "af_heart",
+        "fallbackProvider": "gemini",
+        "fallbackVoiceId": "Algenib"
+      }
+    }
+  }
+}

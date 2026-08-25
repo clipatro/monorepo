@@ -37,6 +37,11 @@ export function parseChannelRow(
     duplicateAdjudicationEnabled: row.duplicate_adjudication_enabled === 1,
     videoGenerationEnabled: row.video_generation_enabled === 1,
     videoTemplate: row.video_template,
+    backgroundAudioPath: row.background_audio_path ?? null,
+    // D021: Flow config
+    flowProjectUrl: row.flow_project_url ?? null,
+    flowCdpEndpoint: row.flow_cdp_endpoint ?? null,
+    flowInterRequestDelayMs: row.flow_inter_request_delay_ms ?? 5000,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

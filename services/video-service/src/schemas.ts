@@ -8,6 +8,10 @@ export const generateSchema = z.object({
   exportDir: z.string().min(1).optional(),
   fps: z.number().int().min(24).max(60).default(60),
   quality: z.enum(["low", "medium", "high"]).default("high"),
+  /** D020: URL to download the channel's background audio file. When provided,
+   *  the renderer mixes it under the voiceover at a low volume, trimmed to
+   *  the video duration with a fade-out at the end. */
+  backgroundAudioUrl: z.string().url().optional(),
 });
 
 /**
@@ -53,4 +57,22 @@ export const renderClipsSchema = z.object({
   templateConfig: z.record(z.any()).optional(),
   /** Whether voiceover is present. */
   hasVoiceover: z.boolean().default(true),
+  /** D020: URL to download the channel's background audio file. */
+  backgroundAudioUrl: z.string().url().optional(),
+});
+
+/**
+ * Phase 9: Flow hybrid render schema — render a video from a mix of
+ * Flow-generated video clips and static images.
+ */
+export const renderFlowSchema = z.object({
+  runId: z.string().min(1),
+  apiGatewayUrl: z.string().url().optional(),
+  exportDir: z.string().min(1).optional(),
+  /** Template config JSON (the merged effective config for the channel). */
+  templateConfig: z.record(z.any()).optional(),
+  /** Whether voiceover is present. */
+  hasVoiceover: z.boolean().default(true),
+  /** D020: URL to download the channel's background audio file. */
+  backgroundAudioUrl: z.string().url().optional(),
 });

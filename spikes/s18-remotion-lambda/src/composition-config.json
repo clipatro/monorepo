@@ -1,0 +1,171 @@
+{
+  "fps": 60,
+  "width": 720,
+  "height": 1280,
+  "totalFrames": 4318,
+  "titleCard": {
+    "startFrame": 0,
+    "endFrame": 150,
+    "title": "The National Debt Explained",
+    "subtitle": "What You Need to Know"
+  },
+  "scenes": [
+    {
+      "id": "scene2",
+      "template": "bar-chart",
+      "startFrame": 150,
+      "endFrame": 1022,
+      "durationFrames": 872,
+      "narrationSegment": "The United States national debt is over 33 trillion dollars. That's a number so big, it's hard to grasp. But what does it actually mean for you? The debt is the total money the government has borrowed over time.",
+      "data": {
+        "title": "U.S. National Debt (Trillions of $)",
+        "yAxisLabel": "Trillions of $",
+        "maxValue": 35,
+        "bars": [
+          {
+            "label": "1990",
+            "value": 3.2,
+            "color": "#4361ee"
+          },
+          {
+            "label": "2000",
+            "value": 5.6,
+            "color": "#4361ee"
+          },
+          {
+            "label": "2010",
+            "value": 13.5,
+            "color": "#4361ee"
+          },
+          {
+            "label": "2020",
+            "value": 26.9,
+            "color": "#4361ee"
+          },
+          {
+            "label": "2023",
+            "value": 33,
+            "color": "#ef233c"
+          }
+        ]
+      }
+    },
+    {
+      "id": "scene3",
+      "template": "line-chart",
+      "startFrame": 1022,
+      "endFrame": 2272,
+      "durationFrames": 1250,
+      "narrationSegment": "It's like a giant credit card bill. When the government spends more than it takes in, it borrows by selling bonds. Investors buy them, and we pay interest. Right now, interest payments are over 600 billion dollars a year. That's more than we spend on education, transportation, or even the environment.",
+      "data": {
+        "title": "Federal Interest Payments (Billions of $)",
+        "yAxisLabel": "Billions of $",
+        "maxValue": 700,
+        "lineColor": "#ef233c",
+        "points": [
+          {
+            "label": "2010",
+            "value": 196
+          },
+          {
+            "label": "2015",
+            "value": 223
+          },
+          {
+            "label": "2020",
+            "value": 345
+          },
+          {
+            "label": "2023",
+            "value": 600
+          }
+        ]
+      }
+    },
+    {
+      "id": "scene4",
+      "template": "pie-chart",
+      "startFrame": 2272,
+      "endFrame": 3150,
+      "durationFrames": 878,
+      "narrationSegment": "As the debt grows, it can slow economic growth, raise interest rates, and limit what we can invest in for the future. But not all debt is bad. Borrowing can fund roads, bridges, and education. The key is balance.",
+      "data": {
+        "title": "Where Do Federal Dollars Go? (2023)",
+        "segments": [
+          {
+            "label": "Interest on Debt",
+            "value": 15,
+            "color": "#ef233c"
+          },
+          {
+            "label": "Defense",
+            "value": 15,
+            "color": "#4361ee"
+          },
+          {
+            "label": "Health Care",
+            "value": 25,
+            "color": "#7209b7"
+          },
+          {
+            "label": "Social Security",
+            "value": 20,
+            "color": "#f4a261"
+          },
+          {
+            "label": "Other",
+            "value": 25,
+            "color": "#2a9d8f"
+          }
+        ]
+      }
+    },
+    {
+      "id": "scene5",
+      "template": "animated-list",
+      "startFrame": 3150,
+      "endFrame": 3630,
+      "durationFrames": 480,
+      "narrationSegment": "So, what can we do? We need smart fiscal policy. That means careful spending, fair taxation, and long-term planning.",
+      "data": {
+        "title": "Keys to Fiscal Responsibility",
+        "items": [
+          {
+            "name": "Careful Spending",
+            "description": "Prioritize essential investments",
+            "color": "#3b82f6"
+          },
+          {
+            "name": "Fair Taxation",
+            "description": "Ensure everyone pays their share",
+            "color": "#60a5fa"
+          },
+          {
+            "name": "Long-Term Planning",
+            "description": "Think beyond the next election",
+            "color": "#93c5fd"
+          }
+        ]
+      }
+    },
+    {
+      "id": "scene6",
+      "template": "circular-progress",
+      "startFrame": 3630,
+      "endFrame": 4138,
+      "durationFrames": 508,
+      "narrationSegment": "The future of our economy depends on understanding this challenge. Stay informed, ask questions, and make your voice heard.",
+      "data": {
+        "title": "National Debt as % of GDP",
+        "percentage": 120,
+        "label": "120%",
+        "sublabel": "of GDP",
+        "color": "#ef233c"
+      }
+    }
+  ],
+  "endCard": {
+    "startFrame": 4138,
+    "endFrame": 4318
+  }
+}

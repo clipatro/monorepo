@@ -34,6 +34,11 @@ export interface ChannelRow {
   duplicate_adjudication_enabled: number; // 1 = use Gemini for borderline, 0 = skip (saves ~$0.02/run)
   video_generation_enabled: number; // 1 = render MP4 after package assembly, 0 = skip
   video_template: string; // D016: video assembly template (default: "gameplay-with-image-scenes")
+  background_audio_path: string | null; // D020: path to background audio file in artifact store
+  // Phase 9 — Google Flow Templates (D021)
+  flow_project_url: string | null; // D021: Google Flow project URL for auto generation
+  flow_cdp_endpoint: string | null; // D021: CDP endpoint (default http://127.0.0.1:9222)
+  flow_inter_request_delay_ms: number; // D021: inter-request delay in ms (default 5000)
   created_at: string;
   updated_at: string;
 }
@@ -259,6 +264,7 @@ export interface SceneRow {
   expected_duration_seconds: number;
   image_requirement: string;
   source_claim_ids: string | null; // JSON array
+  media_type: string; // D021: "video-clip" or "image" (for flow-hybrid scenes)
   created_at: string;
 }
 

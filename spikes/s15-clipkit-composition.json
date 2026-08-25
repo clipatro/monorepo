@@ -1,0 +1,553 @@
+{
+  "clipkit_version": "1.0",
+  "width": 1080,
+  "height": 1920,
+  "duration": 12,
+  "frame_rate": 30,
+  "background_color": "#0a0a0f",
+  "motion_blur": { "samples": 1, "shutter": 0.5 },
+  "styles": {
+    "headline": {
+      "font_family": "Georgia, serif",
+      "font_weight": 700,
+      "fill_color": "#f3ead7",
+      "letter_spacing": 2
+    },
+    "subtitle": {
+      "font_family": "Inter, sans-serif",
+      "font_weight": 400,
+      "fill_color": "#a8b2c8",
+      "letter_spacing": 1
+    },
+    "caption": {
+      "font_family": "Inter, sans-serif",
+      "font_weight": 600,
+      "fill_color": "#ffd60a",
+      "letter_spacing": 3
+    }
+  },
+  "elements": [
+    {
+      "type": "shape",
+      "id": "bg-gradient",
+      "layer": 1,
+      "time": 0,
+      "duration": "end",
+      "width": "100%",
+      "height": "100%",
+      "gradient": {
+        "type": "linear",
+        "angle": 180,
+        "stops": [
+          { "offset": 0, "color": "#0a0a0f" },
+          { "offset": 0.5, "color": "#141420" },
+          { "offset": 1, "color": "#0a0a0f" }
+        ]
+      }
+    },
+
+    {
+      "type": "particles",
+      "id": "dust",
+      "layer": 2,
+      "time": 0,
+      "duration": "end",
+      "x": 0,
+      "y": 0,
+      "width": "100%",
+      "height": "100%",
+      "rate": 8,
+      "velocity": 30,
+      "gravity": -5,
+      "color": "#ffd60a",
+      "opacity": 0.15,
+      "blend_mode": "add"
+    },
+
+    {
+      "type": "image",
+      "id": "scene1-img",
+      "layer": 3,
+      "time": 0,
+      "duration": 3.5,
+      "x": 0,
+      "y": 0,
+      "width": "100%",
+      "height": 960,
+      "source": "http://localhost:18900/characters/Emily/optimized-512/portrait.jpg",
+      "fit": "cover",
+      "opacity": [
+        { "time": 0, "value": 0 },
+        { "time": 0.5, "value": 1, "easing": "ease-out-cubic" },
+        { "time": 3.0, "value": 1 },
+        { "time": 3.5, "value": 0, "easing": "ease-in-cubic" }
+      ],
+      "scale": { "expr": "1.0 + ease(t, 0, 3.5, 0, 0.12)" },
+      "y": { "expr": "ease(t, 0, 3.5, 0, -20)" },
+      "blur_radius": [
+        { "time": 0, "value": 12 },
+        { "time": 0.5, "value": 0, "easing": "ease-out" }
+      ]
+    },
+
+    {
+      "type": "image",
+      "id": "scene2-img",
+      "layer": 4,
+      "time": 3.0,
+      "duration": 3.5,
+      "x": 0,
+      "y": 0,
+      "width": "100%",
+      "height": 960,
+      "source": "http://localhost:18900/characters/George/optimized-512/portrait.jpg",
+      "fit": "cover",
+      "opacity": [
+        { "time": 0, "value": 0 },
+        { "time": 0.5, "value": 1, "easing": "ease-out-cubic" },
+        { "time": 3.0, "value": 1 },
+        { "time": 3.5, "value": 0, "easing": "ease-in-cubic" }
+      ],
+      "scale": { "expr": "1.12 - ease(t, 0, 3.5, 0, 0.12)" },
+      "x": { "expr": "ease(t, 0, 3.5, 20, -20)" }
+    },
+
+    {
+      "type": "image",
+      "id": "scene3-img",
+      "layer": 5,
+      "time": 6.0,
+      "duration": 3.5,
+      "x": 0,
+      "y": 0,
+      "width": "100%",
+      "height": 960,
+      "source": "http://localhost:18900/characters/Noah/optimized-512/portrait.jpg",
+      "fit": "cover",
+      "opacity": [
+        { "time": 0, "value": 0 },
+        { "time": 0.5, "value": 1, "easing": "ease-out-cubic" },
+        { "time": 3.0, "value": 1 },
+        { "time": 3.5, "value": 0, "easing": "ease-in-cubic" }
+      ],
+      "scale": { "expr": "1.05 + ease(t, 0, 3.5, 0, 0.08)" },
+      "y": { "expr": "ease(t, 0, 3.5, -15, 15)" }
+    },
+
+    {
+      "type": "image",
+      "id": "scene4-img",
+      "layer": 6,
+      "time": 9.0,
+      "duration": 3.0,
+      "x": 0,
+      "y": 0,
+      "width": "100%",
+      "height": 960,
+      "source": "http://localhost:18900/characters/Emily/optimized-512/three-quarter.jpg",
+      "fit": "cover",
+      "opacity": [
+        { "time": 0, "value": 0 },
+        { "time": 0.5, "value": 1, "easing": "ease-out-cubic" },
+        { "time": 2.5, "value": 1 },
+        { "time": 3.0, "value": 0, "easing": "ease-in-cubic" }
+      ],
+      "scale": { "expr": "1.08 - ease(t, 0, 3.0, 0, 0.08)" }
+    },
+
+    {
+      "type": "shape",
+      "id": "scene-gradient-overlay",
+      "layer": 7,
+      "time": 0,
+      "duration": "end",
+      "x": 0,
+      "y": 0,
+      "width": "100%",
+      "height": 960,
+      "gradient": {
+        "type": "linear",
+        "angle": 180,
+        "stops": [
+          { "offset": 0, "color": "rgba(10,10,15,0)" },
+          { "offset": 0.6, "color": "rgba(10,10,15,0)" },
+          { "offset": 1, "color": "rgba(10,10,15,0.8)" }
+        ]
+      }
+    },
+
+    {
+      "type": "shape",
+      "id": "divider",
+      "layer": 8,
+      "time": 0,
+      "duration": "end",
+      "x": 0,
+      "y": 957,
+      "width": "100%",
+      "height": 6,
+      "fill_color": "#1a1a2e",
+      "opacity": 0.8
+    },
+
+    {
+      "type": "shape",
+      "id": "divider-glow",
+      "layer": 9,
+      "time": 0,
+      "duration": "end",
+      "x": 0,
+      "y": 950,
+      "width": { "expr": "ease(t, 0, 1, 0, 1080)" },
+      "height": 20,
+      "gradient": {
+        "type": "linear",
+        "angle": 0,
+        "stops": [
+          { "offset": 0, "color": "rgba(255,214,10,0)" },
+          { "offset": 0.5, "color": "rgba(255,214,10,0.6)" },
+          { "offset": 1, "color": "rgba(255,214,10,0)" }
+        ]
+      },
+      "blur_radius": 8,
+      "blend_mode": "add",
+      "opacity": { "expr": "0.5 + 0.3 * sin(t * 2)" }
+    },
+
+    {
+      "type": "shape",
+      "id": "bottom-panel",
+      "layer": 10,
+      "time": 0,
+      "duration": "end",
+      "x": 0,
+      "y": 960,
+      "width": "100%",
+      "height": 960,
+      "gradient": {
+        "type": "radial",
+        "angle": 0,
+        "stops": [
+          { "offset": 0, "color": "#161628" },
+          { "offset": 1, "color": "#0a0a0f" }
+        ]
+      }
+    },
+
+    {
+      "type": "text",
+      "id": "title",
+      "style": "headline",
+      "layer": 13,
+      "time": 0.3,
+      "duration": 3.2,
+      "x": "50%",
+      "y": 780,
+      "x_anchor": "50%",
+      "font_size": 72,
+      "text": "Emily's Mediterranean Life",
+      "text_align": "center",
+      "text_wrap": true,
+      "width": 900,
+      "text_shadow": { "color": "#000000", "offset_x": 0, "offset_y": 4, "blur": 20, "opacity": 0.8 },
+      "animations": [
+        {
+          "type": "text-slide",
+          "time": "start",
+          "duration": 0.8,
+          "split": "word",
+          "stagger": 0.1,
+          "direction": "up",
+          "easing": "ease-out-cubic"
+        },
+        {
+          "type": "fade-out",
+          "time": "end",
+          "duration": 0.4
+        }
+      ]
+    },
+
+    {
+      "type": "shape",
+      "id": "title-underline",
+      "layer": 12,
+      "time": 1.0,
+      "duration": 2.5,
+      "x": "50%",
+      "y": 880,
+      "x_anchor": "50%",
+      "height": 4,
+      "fill_color": "#ffd60a",
+      "width": { "expr": "ease(t, 0, 0.5, 0, 320)" },
+      "opacity": [
+        { "time": 0, "value": 0 },
+        { "time": 0.2, "value": 1, "easing": "ease-out" },
+        { "time": 2.1, "value": 1 },
+        { "time": 2.5, "value": 0, "easing": "ease-in" }
+      ],
+      "shadow": { "color": "#ffd60a", "offset_x": 0, "offset_y": 0, "blur": 12 }
+    },
+
+    {
+      "type": "text",
+      "id": "scene1-caption",
+      "style": "caption",
+      "layer": 14,
+      "time": 1.2,
+      "duration": 2.3,
+      "x": "50%",
+      "y": 920,
+      "x_anchor": "50%",
+      "font_size": 28,
+      "text": "CHAPTER ONE",
+      "text_transform": "uppercase",
+      "opacity": [
+        { "time": 0, "value": 0 },
+        { "time": 0.4, "value": 1, "easing": "ease-out" },
+        { "time": 1.9, "value": 1 },
+        { "time": 2.3, "value": 0, "easing": "ease-in" }
+      ],
+      "animations": [
+        {
+          "type": "text-typewriter",
+          "time": "start",
+          "duration": 0.6,
+          "split": "letter",
+          "stagger": 0.04
+        }
+      ]
+    },
+
+    {
+      "type": "text",
+      "id": "scene2-title",
+      "style": "headline",
+      "layer": 15,
+      "time": 3.3,
+      "duration": 3.2,
+      "x": "50%",
+      "y": 780,
+      "x_anchor": "50%",
+      "font_size": 64,
+      "text": "The Old Fisherman",
+      "text_align": "center",
+      "text_wrap": true,
+      "width": 900,
+      "text_shadow": { "color": "#000000", "offset_x": 0, "offset_y": 4, "blur": 20, "opacity": 0.8 },
+      "animations": [
+        {
+          "type": "text-fly",
+          "time": "start",
+          "duration": 0.7,
+          "split": "word",
+          "stagger": 0.08,
+          "direction": "up",
+          "easing": "ease-out-quart"
+        },
+        {
+          "type": "fade-out",
+          "time": "end",
+          "duration": 0.4
+        }
+      ]
+    },
+
+    {
+      "type": "text",
+      "id": "scene2-subtitle",
+      "style": "subtitle",
+      "layer": 16,
+      "time": 3.8,
+      "duration": 2.7,
+      "x": "50%",
+      "y": 880,
+      "x_anchor": "50%",
+      "font_size": 32,
+      "text": "A story of patience and sea",
+      "text_align": "center",
+      "text_wrap": true,
+      "width": 800,
+      "opacity": [
+        { "time": 0, "value": 0 },
+        { "time": 0.5, "value": 1, "easing": "ease-out" },
+        { "time": 2.3, "value": 1 },
+        { "time": 2.7, "value": 0, "easing": "ease-in" }
+      ],
+      "animations": [
+        {
+          "type": "text-wave",
+          "time": "start",
+          "duration": 0.8,
+          "split": "letter",
+          "stagger": 0.03
+        }
+      ]
+    },
+
+    {
+      "type": "text",
+      "id": "scene3-title",
+      "style": "headline",
+      "layer": 17,
+      "time": 6.3,
+      "duration": 3.2,
+      "x": "50%",
+      "y": 780,
+      "x_anchor": "50%",
+      "font_size": 64,
+      "text": "The Boy Who Dreamed",
+      "text_align": "center",
+      "text_wrap": true,
+      "width": 900,
+      "text_shadow": { "color": "#000000", "offset_x": 0, "offset_y": 4, "blur": 20, "opacity": 0.8 },
+      "animations": [
+        {
+          "type": "text-flip",
+          "time": "start",
+          "duration": 0.8,
+          "split": "word",
+          "stagger": 0.1,
+          "easing": "ease-out-back"
+        },
+        {
+          "type": "fade-out",
+          "time": "end",
+          "duration": 0.4
+        }
+      ]
+    },
+
+    {
+      "type": "text",
+      "id": "scene3-caption",
+      "style": "caption",
+      "layer": 18,
+      "time": 6.8,
+      "duration": 2.7,
+      "x": "50%",
+      "y": 880,
+      "x_anchor": "50%",
+      "font_size": 28,
+      "text": "CHAPTER THREE",
+      "text_transform": "uppercase",
+      "opacity": [
+        { "time": 0, "value": 0 },
+        { "time": 0.4, "value": 1, "easing": "ease-out" },
+        { "time": 2.3, "value": 1 },
+        { "time": 2.7, "value": 0, "easing": "ease-in" }
+      ],
+      "animations": [
+        {
+          "type": "text-slide",
+          "time": "start",
+          "duration": 0.5,
+          "split": "letter",
+          "stagger": 0.03,
+          "direction": "up",
+          "easing": "ease-out-cubic"
+        }
+      ]
+    },
+
+    {
+      "type": "text",
+      "id": "closing-title",
+      "style": "headline",
+      "layer": 19,
+      "time": 9.3,
+      "duration": 2.7,
+      "x": "50%",
+      "y": 760,
+      "x_anchor": "50%",
+      "font_size": 80,
+      "text": "To be continued...",
+      "text_align": "center",
+      "text_wrap": true,
+      "width": 900,
+      "text_shadow": { "color": "#ffd60a", "offset_x": 0, "offset_y": 0, "blur": 30, "opacity": 0.4 },
+      "animations": [
+        {
+          "type": "text-slide",
+          "time": "start",
+          "duration": 1.0,
+          "split": "word",
+          "stagger": 0.15,
+          "direction": "up",
+          "easing": "ease-out-quart"
+        }
+      ]
+    },
+
+    {
+      "type": "shape",
+      "id": "closing-glow",
+      "layer": 11,
+      "time": 9.0,
+      "duration": 3.0,
+      "x": "50%",
+      "y": 800,
+      "x_anchor": "50%",
+      "y_anchor": "50%",
+      "width": 600,
+      "height": 600,
+      "shape": "ellipse",
+      "gradient": {
+        "type": "radial",
+        "angle": 0,
+        "stops": [
+          { "offset": 0, "color": "rgba(255,214,10,0.15)" },
+          { "offset": 1, "color": "rgba(255,214,10,0)" }
+        ]
+      },
+      "blend_mode": "add",
+      "scale": { "expr": "0.5 + ease(t, 0, 2, 0, 1.0)" },
+      "opacity": { "expr": "ease(t, 0, 1, 0, 1) * (0.7 + 0.3 * sin(t * 3))" }
+    },
+
+    {
+      "type": "shape",
+      "id": "progress-bar-bg",
+      "layer": 20,
+      "time": 0,
+      "duration": "end",
+      "x": 0,
+      "y": 1900,
+      "width": "100%",
+      "height": 4,
+      "fill_color": "#1a1a2e"
+    },
+
+    {
+      "type": "shape",
+      "id": "progress-bar",
+      "layer": 21,
+      "time": 0,
+      "duration": "end",
+      "x": 0,
+      "y": 1900,
+      "height": 4,
+      "fill_color": "#ffd60a",
+      "width": { "expr": "ease(t, 0, 12, 0, 1080)" },
+      "shadow": { "color": "#ffd60a", "offset_x": 0, "offset_y": 0, "blur": 8 }
+    },
+
+    {
+      "type": "text",
+      "id": "watermark",
+      "layer": 22,
+      "time": 0,
+      "duration": "end",
+      "x": "50%",
+      "y": 1820,
+      "x_anchor": "50%",
+      "font_size": 22,
+      "font_family": "Inter, sans-serif",
+      "font_weight": 500,
+      "fill_color": "#3a3a4e",
+      "text": "CLIPATRO",
+      "letter_spacing": 6,
+      "opacity": 0.6
+    }
+  ]
+}

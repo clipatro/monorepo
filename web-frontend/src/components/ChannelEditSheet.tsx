@@ -76,6 +76,10 @@ interface ChannelForm {
 	duplicateAdjudicationEnabled: boolean;
 	videoGenerationEnabled: boolean;
 	videoTemplateId: string;
+	// D021: Flow config
+	flowProjectUrl: string;
+	flowCdpEndpoint: string;
+	flowInterRequestDelayMs: number;
 }
 
 const emptyForm: ChannelForm = {
@@ -97,6 +101,9 @@ const emptyForm: ChannelForm = {
 	duplicateAdjudicationEnabled: true,
 	videoGenerationEnabled: false,
 	videoTemplateId: "gameplay-with-image-scenes",
+	flowProjectUrl: "",
+	flowCdpEndpoint: "http://127.0.0.1:9222",
+	flowInterRequestDelayMs: 5000,
 };
 
 function avatarUrl(refs: CharacterReference[]): string | null {
@@ -250,6 +257,9 @@ export function ChannelEditSheet({
 				duplicateAdjudicationEnabled: ch.duplicateAdjudicationEnabled ?? true,
 				videoGenerationEnabled: ch.videoGenerationEnabled ?? false,
 				videoTemplateId: ch.videoTemplate ?? "gameplay-with-image-scenes",
+				flowProjectUrl: ch.flowProjectUrl ?? "",
+				flowCdpEndpoint: ch.flowCdpEndpoint ?? "http://127.0.0.1:9222",
+				flowInterRequestDelayMs: ch.flowInterRequestDelayMs ?? 5000,
 			});
 			const hasCustomLlm = ch.llmConfig && Object.keys(ch.llmConfig).length > 0;
 			setLlmSectionOpen(!!hasCustomLlm);
@@ -453,6 +463,9 @@ export function ChannelEditSheet({
 				aspectRatio: effAspectRatio,
 				videoTemplate: videoTemplateId,
 				llmConfig: Object.keys(cleanedLlmConfig).length > 0 ? cleanedLlmConfig : null,
+				flowProjectUrl: form.flowProjectUrl || null,
+				flowCdpEndpoint: form.flowCdpEndpoint,
+				flowInterRequestDelayMs: form.flowInterRequestDelayMs,
 			};
 			let channelId: string;
 			if (editingChannel) {
@@ -552,6 +565,41 @@ export function ChannelEditSheet({
 							</div>
 						</div>
 
+						{/* Background Audio — only shown when video generation is enabled */}
+						{form.videoGenerationEnabled && editingChannel && (
+							<div className="rounded-md border p-3 space-y-2">
+								<Label>Background music</Label>
+								<p className="text-xs text-muted-foreground">Upload a low-volume background audio file. It will be mixed into every video generated for this channel — trimmed to the video length with a fade-out at the end.</p>
+								{editingChannel.backgroundAudioPath ? (
+									<div className="flex items-center gap-2">
+										<Badge variant="secondary" className="text-xs">Audio set</Badge>
+										<Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={async () => {
+											try {
+												await api.deleteBackgroundAudio(editingChannel.id);
+												await onSaved();
+											} catch (err) { console.error("Failed to delete background audio:", err); }
+										}}>Remove</Button>
+									</div>
+								) : (
+									<Input
+										type="file"
+										accept="audio/*"
+										className="text-xs"
+										onChange={async (e) => {
+											const file = e.target.files?.[0];
+											if (!file) return;
+											try {
+												await api.uploadBackgroundAudio(editingChannel.id, file);
+												await onSaved();
+											} catch (err) {
+												console.error("Failed to upload background audio:", err);
+											}
+										}}
+									/>
+								)}
+							</div>
+						)}
+
 						{/* Video Template Selection + Template-Specific Config */}
 						<div className="rounded-md border p-3 space-y-3">
 							<div className="space-y-2">
@@ -593,6 +641,72 @@ export function ChannelEditSheet({
 								</div>
 							)}
 						</div>
+
+						{/* D021: Flow Config (only for Flow templates) */}
+						{(form.videoTemplateId === "flow-manual" || form.videoTemplateId === "flow-auto") && (
+							<div className="rounded-md border p-3 space-y-3">
+								<div className="space-y-1">
+									<p className="text-sm font-medium">Google Flow Configuration</p>
+									<p className="text-xs text-muted-foreground">
+										{form.videoTemplateId === "flow-auto"
+											? "Auto mode: the platform drives Flow via CDP. Requires a signed-in Chrome with CDP attached."
+											: "Manual mode: the platform compiles prompts for you to generate in Flow manually."}
+									</p>
+								</div>
+								{form.videoTemplateId === "flow-auto" && (
+									<>
+										<div className="space-y-2">
+											<Label htmlFor="flowProjectUrl">Flow Project URL</Label>
+											<Input
+												id="flowProjectUrl"
+												type="url"
+												placeholder="https://labs.google/fx/tools/flow/project/..."
+												value={form.flowProjectUrl}
+												onChange={(e) => setForm((f) => ({ ...f, flowProjectUrl: e.target.value }))}
+											/>
+											<p className="text-xs text-muted-foreground">
+												Open your Flow project in the browser and copy the URL.
+											</p>
+										</div>
+										<div className="space-y-2">
+											<Label htmlFor="flowCdpEndpoint">CDP Endpoint</Label>
+											<Input
+												id="flowCdpEndpoint"
+												type="text"
+												placeholder="http://127.0.0.1:9222"
+												value={form.flowCdpEndpoint}
+												onChange={(e) => setForm((f) => ({ ...f, flowCdpEndpoint: e.target.value }))}
+											/>
+											<p className="text-xs text-muted-foreground">
+												Run <code className="text-xs bg-gray-100 px-1 rounded">./scripts/flow-chrome.sh attach</code> to start Chrome with CDP.
+											</p>
+										</div>
+										<div className="space-y-2">
+											<Label htmlFor="flowInterRequestDelayMs">Inter-request delay (ms)</Label>
+											<Input
+												id="flowInterRequestDelayMs"
+												type="number"
+												min={0}
+												value={form.flowInterRequestDelayMs}
+												onChange={(e) => setForm((f) => ({ ...f, flowInterRequestDelayMs: Number(e.target.value) }))}
+											/>
+											<p className="text-xs text-muted-foreground">
+												Delay between Flow generations to keep reCAPTCHA pass rate high (default: 5000ms).
+											</p>
+										</div>
+										<div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs text-blue-800 space-y-1">
+											<p className="font-medium">Setup Guide:</p>
+											<ol className="list-decimal list-inside space-y-0.5">
+												<li>Run <code className="bg-blue-100 px-1 rounded">./scripts/flow-chrome.sh login</code> (one-time Google sign-in)</li>
+												<li>Run <code className="bg-blue-100 px-1 rounded">./scripts/flow-chrome.sh attach</code> (reopen with CDP)</li>
+												<li>Open your Flow project and copy the URL above</li>
+												<li>Ensure characters are created in the Flow project</li>
+											</ol>
+										</div>
+									</>
+								)}
+							</div>
+						)}
 
 						{/* LLM Configuration */}
 						<div className="rounded-lg border">

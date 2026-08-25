@@ -89,9 +89,12 @@ export function PipelinePage() {
 	const progressPct =
 		totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
-	const pendingApprovals = (selectedRun?.approvals ?? []).filter(
-		(a) => a.status === "pending",
-	);
+	const pendingApprovals = (selectedRun?.approvals ?? [])
+		.filter((a) => a.status === "pending")
+		.filter(
+			(a, i, arr) =>
+				arr.findIndex((b) => b.approvalType === a.approvalType) === i,
+		);
 	const isCompleted = selectedRun?.status === "completed";
 
 	const stats = useMemo(() => {

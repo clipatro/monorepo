@@ -28,6 +28,7 @@ const generateSchema = z.object({
   noveltyContext: z.string().optional(),
   candidateCount: z.number().int().min(1).max(5).optional(),
   storyline: z.string().optional(),
+  creativeDirection: z.string().optional(),
   research: z.object({
     sources: z.array(z.object({
       id: z.string(), title: z.string(), url: z.string().optional(), excerpt: z.string(),

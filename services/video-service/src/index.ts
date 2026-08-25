@@ -13,6 +13,7 @@
  * - POST /generate       — render an image-based video from an export package
  * - POST /generate-clip  — generate a single AI video clip (D017)
  * - POST /render-clips   — render a clip-based video from pre-generated clips (D017)
+ * - POST /render-flow    — render a Flow hybrid video (clips + images mixed) (Phase 9)
  * - GET  /video/:runId   — stream the rendered MP4
  * - GET  /download/:runId — download the rendered MP4
  */

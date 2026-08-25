@@ -47,10 +47,19 @@ export interface ChannelConfig {
   researchEnabled: boolean;
   duplicateAdjudicationEnabled: boolean;
   videoGenerationEnabled: boolean;
+  /** D020: Path to background audio file in the artifact store (null = no background music). */
+  backgroundAudioPath: string | null;
   /** D017: Merged effective template config (template defaults + channel overrides). */
   template: TemplateConfig | null;
   /** D017: The template id assigned to this channel (e.g. "gameplay-with-image-scenes"). */
   templateId: string | null;
+  // Phase 9 — Google Flow Templates (D021)
+  /** D021: Google Flow project URL for auto generation (null = not configured). */
+  flowProjectUrl: string | null;
+  /** D021: CDP endpoint for Flow automation (default http://127.0.0.1:9222). */
+  flowCdpEndpoint: string | null;
+  /** D021: Inter-request delay in ms for serialized Flow generation (default 5000). */
+  flowInterRequestDelayMs: number | null;
 }
 
 /**

@@ -15,6 +15,8 @@ import { migration007 } from "./007-context-aware-characters.ts";
 import { migration008 } from "./008-channel-video-template.ts";
 import { migration009 } from "./009-multi-active-characters.ts";
 import { migration010 } from "./010-video-templates.ts";
+import { migration011 } from "./011-channel-background-audio.ts";
+import { migration012 } from "./012-flow-scene-type.ts";
 
 export interface Migration {
   id: number;
@@ -34,5 +36,7 @@ export function getMigrations(): Migration[] {
     migration008,
     migration009,
     migration010,
+    migration011,
+    migration012,
   ];
 }
