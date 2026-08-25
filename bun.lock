@@ -92,6 +92,8 @@
       "name": "@automation/remotion-templates",
       "version": "0.0.0",
       "dependencies": {
+        "lucide-react": "^1.33.0",
+        "react": "^19.1.0",
         "remotion": "^4.0.411",
       },
       "peerDependencies": {

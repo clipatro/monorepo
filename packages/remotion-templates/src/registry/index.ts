@@ -16,22 +16,33 @@
  */
 
 import React from "react";
-import { BarChart, type BarChartData } from "../components/BarChart.tsx";
-import { LineChart, type LineChartData } from "../components/LineChart.tsx";
-import { PieChart, type PieChartData } from "../components/PieChart.tsx";
-import { AnimatedList, type AnimatedListData } from "../components/AnimatedList.tsx";
-import { CircularProgress, type CircularProgressData } from "../components/CircularProgress.tsx";
-import { TitleCard } from "../components/TitleCard.tsx";
-import { EndCard } from "../components/EndCard.tsx";
+import { BarChart, type BarChartData } from "../documentary/components/BarChart.tsx";
+import { LineChart, type LineChartData } from "../documentary/components/LineChart.tsx";
+import { PieChart, type PieChartData } from "../documentary/components/PieChart.tsx";
+import { AnimatedList, type AnimatedListData } from "../documentary/components/AnimatedList.tsx";
+import { CircularProgress, type CircularProgressData } from "../documentary/components/CircularProgress.tsx";
+import { TitleCard } from "../documentary/components/TitleCard.tsx";
+import { EndCard } from "../documentary/components/EndCard.tsx";
 import type { ThemeConfig } from "../themes/index.ts";
+import { getComponentCapability, type ComponentCapability } from "../documentary/capabilities.ts";
+import { documentaryRegistry } from "../documentary/registry.ts";
+import { mediaRegistry } from "../documentary/media-registry.ts";
+import { getMysteryComponentCapability, type MysteryComponentCapability } from "../mystery/capabilities.ts";
+import { mysteryRegistry } from "../mystery/registry.ts";
 
 export type TemplateCategory =
   | "Charts & Data"
   | "Text"
   | "Intro & Outro"
-  | "Content Animation";
+  | "Content Animation"
+  | "Narrative"
+  | "Facts & Data"
+  | "Evidence"
+  | "People & Places"
+  | "Explainers"
+  | "Image & Media";
 
-export interface TemplateEntry {
+export interface TemplateDefinition {
   slug: string;
   name: string;
   subtitle: string;
@@ -42,6 +53,10 @@ export interface TemplateEntry {
   fps: number;
   width: number;
   height: number;
+}
+
+export interface TemplateEntry extends TemplateDefinition {
+  capability: ComponentCapability | MysteryComponentCapability;
 }
 
 // ─── Sample data for previews ────────────────────────────────────────────────
@@ -55,7 +70,7 @@ const sampleBarData: BarChartData = {
     { label: "2000", value: 5.6 },
     { label: "2010", value: 13.5 },
     { label: "2020", value: 26.9 },
-    { label: "2023", value: 33, color: "#f43f5e" },
+    { label: "2023", value: 33 },
   ],
 };
 
@@ -63,7 +78,6 @@ const sampleLineData: LineChartData = {
   title: "Federal Interest Payments (Billions)",
   yAxisLabel: "Billions of $",
   maxValue: 700,
-  lineColor: "#f43f5e",
   points: [
     { label: "2010", value: 196 },
     { label: "2015", value: 223 },
@@ -75,11 +89,10 @@ const sampleLineData: LineChartData = {
 const samplePieData: PieChartData = {
   title: "Where Do Federal Dollars Go?",
   segments: [
-    { label: "Interest", value: 15, color: "#f43f5e" },
-    { label: "Defense", value: 15, color: "#00d4ff" },
-    { label: "Health Care", value: 25, color: "#a855f7" },
-    { label: "Social Security", value: 20, color: "#f59e0b" },
-    { label: "Other", value: 25, color: "#10b981" },
+    { label: "Interest", value: 20 },
+    { label: "Defense", value: 20 },
+    { label: "Health Care", value: 33 },
+    { label: "Social Security", value: 27 },
   ],
 };
 
@@ -95,14 +108,13 @@ const sampleListData: AnimatedListData = {
 const sampleProgressData: CircularProgressData = {
   title: "National Debt as % of GDP",
   percentage: 120,
-  label: "120%",
+  label: "Debt exceeded the size of annual economic output.",
   sublabel: "of GDP",
-  color: "#f43f5e",
 };
 
 // ─── Registry ────────────────────────────────────────────────────────────────
 
-export const registry: TemplateEntry[] = [
+const templateDefinitions: TemplateDefinition[] = [
   {
     slug: "bar-chart",
     name: "Bar Chart",
@@ -187,7 +199,16 @@ export const registry: TemplateEntry[] = [
     width: 720,
     height: 1280,
   },
+  ...documentaryRegistry,
+  ...mediaRegistry,
+  ...mysteryRegistry,
 ];
+
+export const registry: TemplateEntry[] = templateDefinitions.map((definition) => {
+  const capability = getComponentCapability(definition.slug) ?? getMysteryComponentCapability(definition.slug);
+  if (!capability) throw new Error(`Missing component capability metadata: ${definition.slug}`);
+  return { ...definition, capability };
+});
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

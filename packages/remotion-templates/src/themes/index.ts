@@ -60,6 +60,8 @@ export interface ThemeConfig {
 
   /** Font families */
   fonts: {
+    display: string;
+    serif: string;
     sans: string;
     mono: string;
   };
@@ -122,8 +124,10 @@ export const midnightTheme: ThemeConfig = {
     axis: "rgba(255,255,255,0.12)",
   },
   fonts: {
-    sans: "Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
-    mono: "'SF Mono', 'JetBrains Mono', 'Fira Code', monospace",
+    display: "'League Gothic', 'Arial Narrow', sans-serif",
+    serif: "Georgia, 'Times New Roman', serif",
+    sans: "Montserrat, Helvetica, sans-serif",
+    mono: "'IBM Plex Mono', 'JetBrains Mono', monospace",
   },
   radius: {
     sm: 8,
@@ -180,8 +184,10 @@ export const sunsetTheme: ThemeConfig = {
     axis: "rgba(255,200,180,0.12)",
   },
   fonts: {
-    sans: "Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
-    mono: "'SF Mono', 'JetBrains Mono', 'Fira Code', monospace",
+    display: "'League Gothic', 'Arial Narrow', sans-serif",
+    serif: "Georgia, 'Times New Roman', serif",
+    sans: "Montserrat, Helvetica, sans-serif",
+    mono: "'IBM Plex Mono', 'JetBrains Mono', monospace",
   },
   radius: {
     sm: 8,
@@ -238,8 +244,10 @@ export const forestTheme: ThemeConfig = {
     axis: "rgba(180,255,200,0.10)",
   },
   fonts: {
-    sans: "Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
-    mono: "'SF Mono', 'JetBrains Mono', 'Fira Code', monospace",
+    display: "'League Gothic', 'Arial Narrow', sans-serif",
+    serif: "Georgia, 'Times New Roman', serif",
+    sans: "Montserrat, Helvetica, sans-serif",
+    mono: "'IBM Plex Mono', 'JetBrains Mono', monospace",
   },
   radius: {
     sm: 8,
@@ -296,8 +304,10 @@ export const royalTheme: ThemeConfig = {
     axis: "rgba(255,215,100,0.10)",
   },
   fonts: {
-    sans: "Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
-    mono: "'SF Mono', 'JetBrains Mono', 'Fira Code', monospace",
+    display: "'League Gothic', 'Arial Narrow', sans-serif",
+    serif: "Georgia, 'Times New Roman', serif",
+    sans: "Montserrat, Helvetica, sans-serif",
+    mono: "'IBM Plex Mono', 'JetBrains Mono', monospace",
   },
   radius: {
     sm: 8,
@@ -311,16 +321,30 @@ export const royalTheme: ThemeConfig = {
   },
 };
 
+export const archiveTheme: ThemeConfig = {
+  name: "archive",
+  bg: { base: "#10100f", surface: "#191917", elevated: "#25231f" },
+  glass: { bg: "rgba(243,239,231,0.06)", border: "rgba(243,239,231,0.18)", highlight: "rgba(243,239,231,0.12)" },
+  text: { bright: "#f3efe7", mid: "rgba(243,239,231,0.72)", dim: "rgba(243,239,231,0.46)" },
+  accents: { primary: "#e85d3f", primaryDeep: "#a93621", secondary: "#d8b25c", tertiary: "#7691a8", success: "#4d8b6a", warning: "#d79032", danger: "#c84032" },
+  chartColors: ["#e85d3f", "#d8b25c", "#6f8f72", "#7691a8", "#c7795b", "#a58b6f"],
+  chart: { grid: "rgba(243,239,231,0.09)", axis: "rgba(243,239,231,0.32)" },
+  fonts: { display: "'League Gothic', 'Arial Narrow', sans-serif", serif: "Georgia, 'Times New Roman', serif", sans: "Montserrat, Helvetica, sans-serif", mono: "'IBM Plex Mono', 'JetBrains Mono', monospace" },
+  radius: { sm: 2, md: 6, lg: 8, xl: 10 },
+  shadows: { card: "12px 16px 0 rgba(0,0,0,0.32)", glow: "none" },
+};
+
 // ─── Theme Registry ─────────────────────────────────────────────────────────
 
 export const themes: Record<string, ThemeConfig> = {
+  archive: archiveTheme,
   midnight: midnightTheme,
   sunset: sunsetTheme,
   forest: forestTheme,
   royal: royalTheme,
 };
 
-export const defaultTheme = midnightTheme;
+export const defaultTheme = archiveTheme;
 
 /** Get a theme by name, falling back to default */
 export function getTheme(name?: string): ThemeConfig {

@@ -14,16 +14,61 @@ registered templates.
 ```
 packages/remotion-templates/
 ├── src/
-│   ├── index.ts                 # Public exports — add new components here
-│   ├── themes/index.ts          # ThemeConfig type, 4 built-in themes, createTheme()
-│   ├── primitives/              # Reusable building blocks (GlassCard, GradientText, etc.)
-│   ├── components/              # Full template components (BarChart, TitleCard, etc.)
-│   └── registry/index.ts        # Template registry — every component is registered here
+│   ├── index.ts                 # Public exports — all namespaces
+│   ├── themes/index.ts          # ThemeConfig type, 5 built-in themes, createTheme()
+│   ├── primitives/              # Shared primitives (AnimatedBackground, GlassCard, StoryIcon, etc.)
+│   ├── documentary/             # Documentary namespace — editorial, evidence-driven
+│   │   ├── canvas.tsx           # DocumentaryCanvas, DocumentaryReveal, EditorialImage
+│   │   ├── capabilities.ts      # LLM-facing metadata for documentary components
+│   │   ├── registry.ts          # Documentary component registrations
+│   │   ├── media-registry.ts    # Image/media component registrations
+│   │   └── components/          # BarChart, LineChart, TitleCard, DocumentaryNarrative, etc.
+│   ├── mystery/                 # Mystery namespace — minimalist, dark, atmospheric
+│   │   ├── canvas.tsx           # MysteryCanvas, MysteryReveal, MysteryImage
+│   │   ├── theme.ts             # mysteryTheme (dark, cold amber accent)
+│   │   ├── capabilities.ts      # LLM-facing metadata for mystery components
+│   │   ├── registry.ts          # Mystery component registrations
+│   │   ├── index.ts             # Mystery namespace public exports
+│   │   └── components/          # MysteryTitleCard, MysteryClue, MysteryTimeline, etc.
+│   └── registry/index.ts        # Unified template registry — merges all namespaces
 └── studio/
     └── src/
         ├── index.ts             # registerRoot entry point
         └── Root.tsx             # All preview compositions
 ```
+
+## Namespaces
+
+Components are organized into namespaces by genre. Each namespace has its own
+canvas (design system), theme, capabilities, and registry. All namespaces are
+merged into the unified registry at `src/registry/index.ts`.
+
+### Documentary namespace (`src/documentary/`)
+
+Editorial, evidence-driven storytelling. Uses the "Broadcast Archive" design
+language: tactile, warm-toned, with hard shadows and visible texture.
+
+- **Canvas:** `DocumentaryCanvas` — accent bar, ghost text, metadata header
+- **Theme:** `archiveTheme` (default), also works with midnight/sunset/forest/royal
+- **Components:** 28 components (charts, narrative, facts, evidence, context, media)
+- **Capabilities:** `getLlmComponentCatalog()`, `recommendComponents()`
+
+### Mystery namespace (`src/mystery/`)
+
+Minimalist, dark, atmospheric mystery storytelling. No exaggeration — the
+mystery comes from restraint. Images carry the weight. Text is quiet. Space
+is generous. One accent color (cold amber) used sparingly.
+
+- **Canvas:** `MysteryCanvas` — single thin accent line, tiny mono label, faint footer
+- **Theme:** `mysteryTheme` (dark, cold amber accent, near-black backgrounds)
+- **Components:** 10 components (title, image-reveal, question, clue, timeline, quote, location, statistic, ending, end-card)
+- **Capabilities:** `getMysteryLlmCatalog()`, `recommendMysteryComponents()`
+- **Design principles:**
+  - No glow, no gradients, no glassmorphism, no borders on cards
+  - Slow fade entrances (no spring, no bounce)
+  - Image treatments: dark, desaturated, noir, clean
+  - Typography: serif for headlines, mono for labels, sans for body
+  - One accent line or dot per frame — nothing more
 
 ## Theme system
 
@@ -43,7 +88,7 @@ interface ThemeConfig {
               tertiary: string; success: string; warning: string; danger: string };
   chartColors: string[];           // cycled through data series
   chart:    { grid: string; axis: string };
-  fonts:    { sans: string; mono: string };
+  fonts:    { display: string; serif: string; sans: string; mono: string };
   radius:   { sm: number; md: number; lg: number; xl: number };
   shadows:  { card: string; glow: string };
 }
@@ -75,10 +120,12 @@ export const MyComponent: React.FC<Props> = ({ data, theme, delay = 0 }) => {
 
 | Name      | Vibe              | Primary   |
 |-----------|-------------------|-----------|
+| archive   | Editorial, tactile (default) | #e85d3f |
 | midnight  | Cool, tech        | #00d4ff   |
 | sunset    | Warm, energetic   | #f97316   |
 | forest    | Natural, calm     | #10b981   |
 | royal     | Premium, gold     | #fbbf24   |
+| mystery-dark | Minimalist, dark, atmospheric | #c4a062 |
 
 ### Creating a custom theme
 
@@ -107,6 +154,10 @@ logic. Available in `src/primitives/`:
 | `GradientText`       | Text with gradient fill (WebkitBackgroundClip)     |
 | `AnimatedNumber`     | Spring-animated counter with mono font             |
 | `SectionTitle`       | Gradient title with spring slide-in entrance       |
+| `DocumentaryCanvas`  | Broadcast Archive frame, metadata, texture, safe area |
+| `DocumentaryReveal`  | Deterministic slide, scale, and wipe choreography  |
+| `EditorialImage`     | Focal-point-aware image with pan/zoom and treatments |
+| `StoryIcon`          | Typed Lucide icon vocabulary for story semantics   |
 
 Import pattern:
 ```tsx
@@ -322,6 +373,25 @@ const template = getTemplate("bar-chart");     // TemplateEntry | undefined
 const charts = listTemplates("Charts & Data"); // TemplateEntry[]
 const cats = listCategories();                  // { name, count }[]
 ```
+
+## LLM component selection
+
+Every registered template MUST have a matching entry in `src/capabilities.ts`. Capability records define purpose, narrative roles, information shapes, tones, image count, icon support, required/optional inputs, text budgets, best uses, contraindications, and a plain-language selection hint.
+
+```ts
+import { recommendComponents, getLlmComponentCatalog } from "@automation/remotion-templates";
+
+const matches = recommendComponents({
+  narrativeRole: "evidence",
+  informationShape: "image-with-callout",
+  availableImages: 1,
+  providedInputs: ["imageUrl", "callout", "targetX", "targetY"],
+});
+
+const llmCatalog = getLlmComponentCatalog();
+```
+
+Do not make an LLM select a component by slug name alone. Pass the JSON-safe catalog or use `recommendComponents()` and validate that all required inputs are available.
 
 ## Remotion version
 

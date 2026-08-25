@@ -9,13 +9,15 @@
  * and the studio will instantly reflect your changes.
  */
 import React from "react";
-import { Composition, AbsoluteFill } from "remotion";
+import { Composition, AbsoluteFill, useCurrentFrame } from "remotion";
 import {
   registry,
+  archiveTheme,
   midnightTheme,
   sunsetTheme,
   forestTheme,
   royalTheme,
+  mysteryTheme,
   AnimatedBackground,
   BarChart,
   LineChart,
@@ -58,7 +60,7 @@ const barData: BarChartData = {
     { label: "2000", value: 5.6 },
     { label: "2010", value: 13.5 },
     { label: "2020", value: 26.9 },
-    { label: "2023", value: 33, color: "#f43f5e" },
+    { label: "2023", value: 33 },
   ],
 };
 
@@ -66,7 +68,6 @@ const lineData: LineChartData = {
   title: "Federal Interest Payments (Billions)",
   yAxisLabel: "Billions of $",
   maxValue: 700,
-  lineColor: "#f43f5e",
   points: [
     { label: "2010", value: 196 },
     { label: "2015", value: 223 },
@@ -78,11 +79,10 @@ const lineData: LineChartData = {
 const pieData: PieChartData = {
   title: "Where Do Federal Dollars Go?",
   segments: [
-    { label: "Interest", value: 15, color: "#f43f5e" },
-    { label: "Defense", value: 15, color: "#00d4ff" },
-    { label: "Health Care", value: 25, color: "#a855f7" },
-    { label: "Social Security", value: 20, color: "#f59e0b" },
-    { label: "Other", value: 25, color: "#10b981" },
+    { label: "Interest", value: 20 },
+    { label: "Defense", value: 20 },
+    { label: "Health Care", value: 33 },
+    { label: "Social Security", value: 27 },
   ],
 };
 
@@ -98,41 +98,51 @@ const listData: AnimatedListData = {
 const progressData: CircularProgressData = {
   title: "National Debt as % of GDP",
   percentage: 120,
-  label: "120%",
+  label: "Debt exceeded the size of annual economic output.",
   sublabel: "of GDP",
-  color: "#f43f5e",
 };
 
 // ─── Gallery: all templates in one composition ───────────────────────────────
 
 const Gallery: React.FC = () => {
+  const frame = useCurrentFrame();
+  const pageSize = 8;
+  const pageCount = Math.ceil(registry.length / pageSize);
+  const page = Math.min(pageCount - 1, Math.floor(frame / 120));
+  const visibleTemplates = registry.slice(page * pageSize, (page + 1) * pageSize);
+
   return (
-    <AbsoluteFill style={{ background: "#06080f", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20 }}>
-      <h1 style={{ color: "#fff", fontSize: 32, fontFamily: "Inter, sans-serif" }}>
+    <AbsoluteFill style={{ background: "#06080f", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, fontFamily: "Inter, sans-serif" }}>
+      <h1 style={{ color: "#fff", fontSize: 32, fontFamily: "Inter, sans-serif", margin: 0 }}>
         Remotion Template Gallery
       </h1>
-      <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 16, fontFamily: "Inter, sans-serif" }}>
-        {registry.length} templates registered · Click individual compositions to preview
+      <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 16, fontFamily: "Inter, sans-serif", margin: 0 }}>
+        {registry.length} templates registered · Page {page + 1} of {pageCount}
       </p>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, maxWidth: 680 }}>
-        {registry.map((t) => (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, width: 680 }}>
+        {visibleTemplates.map((t) => (
           <div key={t.slug} style={{
-            padding: "16px 20px",
+            minHeight: 130,
+            padding: "18px 20px",
             background: "rgba(255,255,255,0.04)",
             border: "1px solid rgba(255,255,255,0.08)",
             borderRadius: 12,
+            boxSizing: "border-box",
           }}>
-            <div style={{ color: "#00d4ff", fontSize: 14, fontWeight: 600, fontFamily: "Inter, sans-serif" }}>
+            <div style={{ color: "#00d4ff", fontSize: 15, fontWeight: 700, fontFamily: "Inter, sans-serif" }}>
               {t.name}
             </div>
-            <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 4 }}>
+            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, lineHeight: 1.4, marginTop: 7 }}>
               {t.subtitle}
             </div>
-            <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 8 }}>
+            <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 10 }}>
               {t.category} · {t.durationInFrames}f · {t.fps}fps
             </div>
           </div>
         ))}
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        {Array.from({ length: pageCount }, (_, index) => <div key={index} style={{ width: index === page ? 24 : 8, height: 8, borderRadius: 999, background: index === page ? "#00d4ff" : "rgba(255,255,255,0.18)" }} />)}
       </div>
     </AbsoluteFill>
   );
@@ -170,7 +180,7 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="Gallery"
         component={Gallery}
-        durationInFrames={120}
+        durationInFrames={Math.ceil(registry.length / 8) * 120}
         fps={60}
         width={720}
         height={1280}
@@ -202,6 +212,26 @@ export const RemotionRoot: React.FC = () => {
           />
         );
       })}
+
+      {[archiveTheme, midnightTheme, sunsetTheme, forestTheme, royalTheme, mysteryTheme].flatMap((theme) =>
+        registry
+          .filter((template) => ["Narrative", "Facts & Data", "Evidence", "People & Places", "Explainers", "Image & Media"].includes(template.category))
+          .map((template) => {
+            const Comp = template.component;
+            return (
+              <Composition
+                key={`${theme.name}-${template.slug}`}
+                id={`${theme.name}-${template.slug}`}
+                component={Comp}
+                durationInFrames={template.durationInFrames}
+                fps={template.fps}
+                width={template.width}
+                height={template.height}
+                defaultProps={{ ...template.defaultProps, theme }}
+              />
+            );
+          }),
+      )}
 
       {/* Midnight theme variants (explicit theme prop) */}
       <Composition

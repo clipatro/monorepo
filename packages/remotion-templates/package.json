@@ -7,12 +7,14 @@
     ".": "./src/index.ts",
     "./themes": "./src/themes/index.ts",
     "./registry": "./src/registry/index.ts",
-    "./components/*": "./src/components/*.tsx",
+    "./documentary/*": "./src/documentary/*",
+    "./mystery/*": "./src/mystery/*",
     "./primitives/*": "./src/primitives/*.tsx"
   },
   "dependencies": {
-    "remotion": "^4.0.411",
-    "react": "^19.1.0"
+    "lucide-react": "^1.33.0",
+    "react": "^19.1.0",
+    "remotion": "^4.0.411"
   },
   "peerDependencies": {
     "react": "^19.0.0"

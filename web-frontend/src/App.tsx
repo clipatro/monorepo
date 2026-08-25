@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { NavLink, Routes, Route, Navigate } from "react-router-dom";
+import { NavLink, Routes, Route, Navigate, Link } from "react-router-dom";
 import {
 	Film,
 	Users,
@@ -49,9 +49,9 @@ export default function App() {
 			{/* Header */}
 			<header className="sticky top-0 z-40 border-b bg-card/80 backdrop-blur">
 				<div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-4 sm:px-6">
-					<div className="flex items-center gap-2">
+					<Link to={"/"} className="flex items-center gap-2 cursor-pointer">
 						<img src="/logo-white.png" alt="Clipatro" className="h-7 w-auto" />
-					</div>
+					</Link>
 					<Separator orientation="vertical" className="hidden h-6 sm:block" />
 					<div className="hidden text-muted-foreground text-xs sm:inline-flex">
 						AUTOMATED VIDEO STORYTELLING
