@@ -1,83 +1,32 @@
-# Local dev override — mounts source code for hot reload.
-# This file is automatically merged with docker-compose.yml by Docker Compose.
-# Only used for local dev; not needed in production.
+# Docker Desktop-compatible local defaults.
+# Application source is copied into each image so startup does not depend on
+# Windows/macOS bind-mount behavior. Rebuild after source changes with:
+#   docker compose up --build
 
 services:
   api-gateway:
-    volumes:
-      - clipatro-data:/app/data
-      - ./characters:/app/characters:ro
-      - ./packages:/app/packages
-      - ./services:/app/services
-      - ./scripts:/app/scripts
-      - ./video-templates:/app/video-templates:ro
-      - ./package.json:/app/package.json
-      - ./tsconfig.json:/app/tsconfig.json
-    command: ["bun", "run", "--watch", "services/api-gateway/src/index.ts"]
+    init: true
 
   story-service:
-    volumes:
-      - clipatro-data:/app/data
-      - ./packages:/app/packages
-      - ./services:/app/services
-      - ./package.json:/app/package.json
-      - ./tsconfig.json:/app/tsconfig.json
-    command: ["bun", "run", "--watch", "services/story-service/src/index.ts"]
+    init: true
 
   research-service:
-    volumes:
-      - clipatro-data:/app/data
-      - ./packages:/app/packages
-      - ./services:/app/services
-      - ./package.json:/app/package.json
-      - ./tsconfig.json:/app/tsconfig.json
-    command: ["bun", "run", "--watch", "services/research-service/src/index.ts"]
+    init: true
 
   image-service:
-    volumes:
-      - clipatro-data:/app/data
-      - ./characters:/app/characters:ro
-      - ./media/dry-run:/app/media/dry-run:ro
-      - ./packages:/app/packages
-      - ./services:/app/services
-      - ./package.json:/app/package.json
-      - ./tsconfig.json:/app/tsconfig.json
-    command: ["bun", "run", "--watch", "services/image-service/src/index.ts"]
+    init: true
 
   voice-service:
-    volumes:
-      - clipatro-data:/app/data
-      - ./media/gameplay:/app/media/gameplay:ro
-      - ./packages:/app/packages
-      - ./services:/app/services
-      - ./package.json:/app/package.json
-      - ./tsconfig.json:/app/tsconfig.json
-    command: ["bun", "run", "--watch", "services/voice-service/src/index.ts"]
+    init: true
 
   embedding-service:
-    volumes:
-      - clipatro-data:/app/data
-      - ./packages:/app/packages
-      - ./services:/app/services
-      - ./package.json:/app/package.json
-      - ./tsconfig.json:/app/tsconfig.json
-    command: ["bun", "run", "--watch", "services/embedding-service/src/index.ts"]
+    init: true
 
   workflow-service:
-    volumes:
-      - clipatro-data:/app/data
-      - ./packages:/app/packages
-      - ./services:/app/services
-      - ./package.json:/app/package.json
-      - ./tsconfig.json:/app/tsconfig.json
-    command: ["bun", "run", "--watch", "services/workflow-service/src/index.ts"]
+    init: true
 
-  # video-service runs on the HOST, not in Docker
+  video-service:
+    init: true
 
   web-frontend:
-    volumes:
-      - ./web-frontend:/app/web-frontend
-      - ./packages:/app/packages
-      - ./services:/app/services
-      - ./package.json:/app/package.json
-      - ./tsconfig.json:/app/tsconfig.json
+    init: true

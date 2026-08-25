@@ -44,9 +44,7 @@ services:
       VOICE_SERVICE_URL: http://voice-service:3004
       EMBEDDING_SERVICE_URL: http://embedding-service:3005
       WORKFLOW_SERVICE_URL: http://workflow-service:3006
-      VIDEO_SERVICE_URL: http://host.docker.internal:3007
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      VIDEO_SERVICE_URL: http://video-service:3007
     restart: unless-stopped
 
   # === Story Service ===
@@ -181,18 +179,25 @@ services:
       IMAGE_SERVICE_URL: http://image-service:3003
       VOICE_SERVICE_URL: http://voice-service:3004
       EMBEDDING_SERVICE_URL: http://embedding-service:3005
-      VIDEO_SERVICE_URL: http://host.docker.internal:3007
+      VIDEO_SERVICE_URL: http://video-service:3007
       API_GATEWAY_URL: http://api-gateway:3000
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
-  # Video service runs on the HOST, not in Docker — hyperframes needs
-  # direct chrome-headless-shell + GPU + host CPU access for fast rendering.
-  # The video-service has NO direct DB or artifact store access. Instead it
-  # downloads export bundles from the api-gateway and uploads rendered videos
-  # back via the staging endpoints (/api/runs/:runId/export-bundle + video-upload).
-  # Start: bun run services/video-service/src/index.ts
+  # === Video Service (portable CPU rendering; auto-uses GPU when available) ===
+  video-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+      args:
+        SERVICE_DIR: video-service
+        PORT: 3007
+    ports:
+      - "3007:3007"
+    env_file: .env
+    environment:
+      PORT: 3007
+      API_GATEWAY_URL: http://api-gateway:3000
+    restart: unless-stopped
 
   # === Web Frontend (React + Vite, Bun dev server) ===
   web-frontend:

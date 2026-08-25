@@ -4,7 +4,7 @@
 
 ## Project
 
-A **Bun + TypeScript microservices** application (Docker Compose) that turns a topic into an approved storyline, scene plan, consistent character images, synchronized voice-over, and a CapCut-ready asset package. It does NOT assemble or render videos.
+A **Bun + TypeScript microservices** application (Docker Compose) that turns a topic into an approved storyline, scene plan, consistent character images, synchronized voice-over, a CapCut-ready asset package, and a rendered video.
 
 - **Code root:** `/home/alinaqi/work/projects/automation`
 - **Runtime:** Bun 1.3.14 + TypeScript — **runs inside every Docker container** (services + web frontend)
@@ -38,6 +38,7 @@ Each generation capability is its own microservice behind a unified facade/repos
 - `voice-service` — `VoiceSynthesizer` facade → `KokoroAdapter`, `GeminiTtsAdapter`
 - `embedding-service` — `Embedder` facade → `LocalOnnxEmbedder`
 - `workflow-service` — durable runner, step claiming, approvals, SSE
+- `video-service` — FFmpeg video rendering with CPU fallback and automatic GPU use when available
 - `api-gateway` — Hono facade aggregating services
 - `web-frontend` — React + Vite + React Flow pipeline graph
 - `db` — SQLite (mounted volume)
@@ -133,18 +134,13 @@ bun run scripts/test-e2e-fixtures.ts   # 29 tests — end-to-end fixtures
 bun run cost [summary|recent|run <id>|budget]
 
 # Docker
-docker compose up -d              # start all services (except video-service)
+docker compose up -d              # start all services, including video-service
+docker compose up --build -d      # rebuild self-contained images after source changes
 docker compose down -v            # stop and wipe runtime data (clipatro-data named volume)
 docker compose build              # rebuild images
 # Inspect runtime data inside the named volume:
 docker compose exec api-gateway bun run cost summary
 docker compose exec api-gateway ls -la /app/data
-
-# Video service (runs on HOST for GPU access — not in Docker)
-# Must be started separately after docker compose up:
-PORT=3007 API_GATEWAY_URL=http://localhost:3000 bun run services/video-service/src/index.ts
-# With GPU rendering:
-HYPERFRAMES_GPU=1 PORT=3007 API_GATEWAY_URL=http://localhost:3000 bun run services/video-service/src/index.ts
 ```
 
 ## No hardcoded channels or characters
