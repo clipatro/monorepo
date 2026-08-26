@@ -174,8 +174,8 @@ export interface EncoderConfig {
 }
 
 export interface TemplateRender {
-  /** Renderer type. */
-  renderer: "ffmpeg";
+  /** Renderer type: "ffmpeg" for FFmpeg-based rendering, "remotion" for Remotion composition rendering. */
+  renderer: "ffmpeg" | "remotion";
   /** Frames per second. */
   fps: number;
   /** Quality preset. */

@@ -2,7 +2,7 @@ import React from "react";
 import { Easing, interpolate, useCurrentFrame } from "remotion";
 import type { ThemeConfig } from "../../themes/index.ts";
 import { DocumentaryCanvas, DocumentaryReveal, getDocumentaryTokens } from "../canvas.tsx";
-import { StoryIcon, type StoryIconName } from "../../primitives/StoryIcon.tsx";
+import { type StoryIconName } from "../../primitives/StoryIcon.tsx";
 
 export interface LineChartData {
   title: string;
@@ -33,11 +33,11 @@ export const LineChart: React.FC<Props> = ({ data, theme, delay = 5 }) => {
   const color = data.lineColor ?? t.accent;
   const totalLength = 1050;
   return (
-    <DocumentaryCanvas theme={theme} delay={delay} eyebrow="Trend record" icon={data.icon ?? "trend"} footer={data.yAxisLabel} contentStyle={{ justifyContent: "flex-start", paddingTop: 42 }}>
+    <DocumentaryCanvas theme={theme} delay={delay} eyebrow="Trend record" footer={data.yAxisLabel} contentStyle={{ justifyContent: "flex-start", paddingTop: 20 }}>
       <DocumentaryReveal delay={delay + 4} direction="wipe"><h1 style={{ margin: 0, maxWidth: 590, fontFamily: t.display, fontSize: data.title.length > 56 ? 66 : 80, lineHeight: 0.9, textTransform: "uppercase" }}>{data.title}</h1></DocumentaryReveal>
-      <div style={{ position: "relative", marginTop: 52, height: 610, borderLeft: `4px solid ${t.bright}`, borderBottom: `4px solid ${t.bright}` }}>
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%"><defs><pattern id="trendHatch" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="12" stroke={color} strokeWidth="4" opacity="0.22" /></pattern></defs><path d={areaPath} fill="url(#trendHatch)" clipPath={`inset(0 ${100 - progress * 100}% 0 0)`} /><path d={linePath} fill="none" stroke={t.bright} strokeWidth="14" strokeLinecap="square" strokeLinejoin="miter" strokeDasharray={totalLength} strokeDashoffset={totalLength * (1 - progress)} /><path d={linePath} fill="none" stroke={color} strokeWidth="5" strokeLinecap="square" strokeLinejoin="miter" strokeDasharray={totalLength} strokeDashoffset={totalLength * (1 - progress)} />{coords.map((point, index) => { const appear = interpolate(progress, [index / points.length, Math.min(1, index / points.length + 0.18)], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }); return <g key={index} opacity={appear}><rect x={point.x - 10} y={point.y - 10} width="20" height="20" fill={index === points.length - 1 ? color : t.bright} transform={`rotate(45 ${point.x} ${point.y})`} /><text x={point.x} y={H - 24} textAnchor="middle" fill={t.mid} fontFamily={t.mono} fontSize="15">{points[index]?.label}</text></g>; })}</svg>
-        <div style={{ position: "absolute", right: 18, top: 12, display: "flex", alignItems: "center", gap: 10, color }}><StoryIcon name="trend" size={28} /><span style={{ fontFamily: t.display, fontSize: 56 }}>{(points.at(-1)?.value ?? 0) * progress > 0 ? ((points.at(-1)?.value ?? 0) * progress).toFixed(0) : "0"}</span></div>
+      <div style={{ position: "relative", marginTop: 36, height: 500, borderLeft: `4px solid ${t.bright}`, borderBottom: `4px solid ${t.bright}` }}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%"><path d={areaPath} fill={color} opacity={0.12} clipPath={`inset(0 ${100 - progress * 100}% 0 0)`} /><path d={linePath} fill="none" stroke={t.bright} strokeWidth="14" strokeLinecap="square" strokeLinejoin="miter" strokeDasharray={totalLength} strokeDashoffset={totalLength * (1 - progress)} /><path d={linePath} fill="none" stroke={color} strokeWidth="5" strokeLinecap="square" strokeLinejoin="miter" strokeDasharray={totalLength} strokeDashoffset={totalLength * (1 - progress)} />{coords.map((point, index) => { const appear = interpolate(progress, [index / points.length, Math.min(1, index / points.length + 0.18)], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }); return <g key={index} opacity={appear}><circle cx={point.x} cy={point.y} r="8" fill={index === points.length - 1 ? color : t.bright} /><text x={point.x} y={H - 24} textAnchor="middle" fill={t.mid} fontFamily={t.mono} fontSize="15">{points[index]?.label}</text></g>; })}</svg>
+        <div style={{ position: "absolute", right: 18, top: 12, color }}><span style={{ fontFamily: t.display, fontSize: 56 }}>{(points.at(-1)?.value ?? 0) * progress > 0 ? ((points.at(-1)?.value ?? 0) * progress).toFixed(0) : "0"}</span></div>
       </div>
     </DocumentaryCanvas>
   );

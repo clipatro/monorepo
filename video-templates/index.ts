@@ -102,7 +102,7 @@ const pipelineSchema = z.object({
 });
 
 const renderSchema = z.object({
-  renderer: z.literal("ffmpeg"),
+  renderer: z.enum(["ffmpeg", "remotion"]),
   fps: z.number().int().min(1).max(120),
   quality: z.enum(["low", "medium", "high"]),
   encoder: z.object({

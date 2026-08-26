@@ -1,0 +1,112 @@
+{
+  "id": "documentary-9x16",
+  "name": "Documentary 9:16 (Remotion)",
+  "description": "Evidence-driven documentary shorts rendered with Remotion. Uses the documentary component catalog (28 components: charts, narrative, facts, evidence, context, media). Real images from Wikipedia + Gemini grounding research. Vertical 9:16 with voiceover narration and background music.",
+  "version": 1,
+  "config": {
+    "layout": {
+      "aspectRatio": "9:16",
+      "width": 1080,
+      "height": 1920,
+      "regions": [
+        {
+          "id": "scenes",
+          "slot": "full",
+          "x": 0,
+          "y": 0,
+          "width": 1080,
+          "height": 1920,
+          "type": "image-sequence",
+          "transition": "crossfade",
+          "transitionDuration": 0.5,
+          "motion": "ken-burns",
+          "zIndex": 1
+        }
+      ],
+      "fadeIn": {
+        "duration": 1.0
+      },
+      "fadeOut": {
+        "duration": 1.2
+      }
+    },
+    "assets": {
+      "images": {
+        "required": true,
+        "perScene": true,
+        "source": "ai-generation",
+        "purpose": "scene-visual"
+      },
+      "voiceover": {
+        "required": true,
+        "source": "tts",
+        "role": "primary-audio"
+      },
+      "captions": {
+        "required": false,
+        "format": "srt",
+        "precision": "scene-level"
+      }
+    },
+    "scenePlan": {
+      "sceneType": "image-scene",
+      "imageRequirement": true,
+      "visualPlanFields": [
+        "visualEvent",
+        "environment",
+        "cameraFraming",
+        "lightingAndMood"
+      ]
+    },
+    "pipeline": {
+      "steps": {
+        "concept_intake": { "enabled": true, "dependsOn": [] },
+        "content_classification": { "enabled": true, "dependsOn": ["concept_intake"] },
+        "research": { "enabled": true, "dependsOn": ["content_classification"] },
+        "novelty_context": { "enabled": true, "dependsOn": ["content_classification"] },
+        "generate_candidates": { "enabled": true, "dependsOn": ["novelty_context"] },
+        "duplicate_detection": { "enabled": true, "dependsOn": ["generate_candidates"] },
+        "story_approval": { "enabled": true, "dependsOn": ["duplicate_detection"] },
+        "scene_plan": { "enabled": true, "required": true, "dependsOn": ["story_approval"] },
+        "script_approval": { "enabled": true, "dependsOn": ["scene_plan"] },
+        "image_prompt_compilation": { "enabled": true, "required": true, "dependsOn": ["script_approval"] },
+        "image_generation": { "enabled": true, "required": true, "dependsOn": ["image_prompt_compilation"] },
+        "image_review": { "enabled": true, "dependsOn": ["image_generation"] },
+        "clip_prompt_compilation": { "enabled": false },
+        "clip_generation": { "enabled": false },
+        "voice_generation": { "enabled": true, "required": true, "dependsOn": ["script_approval"] },
+        "audio_timing": { "enabled": true, "required": true, "dependsOn": ["voice_generation"] },
+        "package_assembly": { "enabled": true, "required": true, "dependsOn": ["image_review", "audio_timing"] },
+        "video_generation": { "enabled": true, "dependsOn": ["package_assembly"] }
+      }
+    },
+    "render": {
+      "renderer": "remotion",
+      "fps": 30,
+      "quality": "high",
+      "encoder": {
+        "gpu": "h264_nvenc",
+        "cpu": "libx264"
+      }
+    },
+    "providers": {
+      "image": {
+        "defaultProvider": "fal",
+        "defaultModel": "fal-ai/flux-2/klein/4b/edit",
+        "characterModel": "fal-ai/flux-2/klein/9b/edit",
+        "nonCharacterModel": "fal-ai/flux-2/klein/4b/edit",
+        "alternativeModels": [
+          "fal-ai/flux-2/klein/4b/edit",
+          "fal-ai/nano-banana-2/edit"
+        ]
+      },
+      "voice": {
+        "defaultProvider": "gemini",
+        "defaultModel": "gemini-tts",
+        "defaultVoiceId": "Algenib",
+        "fallbackProvider": "kokoro",
+        "fallbackVoiceId": "af_heart"
+      }
+    }
+  }
+}

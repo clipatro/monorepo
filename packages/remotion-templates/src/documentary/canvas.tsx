@@ -77,8 +77,8 @@ export const DocumentaryCanvas: React.FC<CanvasProps> = ({
   eyebrow,
   footer,
   variant = "default",
-  icon = "archive",
-  edition = "FIELD NOTE",
+  icon,
+  edition,
   contentStyle,
 }) => {
   const frame = useCurrentFrame();
@@ -86,35 +86,34 @@ export const DocumentaryCanvas: React.FC<CanvasProps> = ({
   const t = getDocumentaryTokens(theme);
   const entrance = spring({ frame: frame - delay - 4, fps, from: 0, to: 1, config: { damping: 18, mass: 0.75, stiffness: 105 } });
   const exit = interpolate(frame, [Math.max(0, durationInFrames - 10), durationInFrames], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.in(Easing.quad) });
-  const drift = interpolate(frame, [0, Math.max(1, durationInFrames)], [0, variant === "warm" ? -24 : 20], { extrapolateRight: "clamp" });
-  const ghost = variant === "paper" ? "DOSSIER" : variant === "warm" ? "WITNESS" : variant === "cool" ? "SIGNAL" : "ARCHIVE";
   const canvasBg = variant === "paper" ? t.bright : t.base;
   const canvasFg = variant === "paper" ? t.base : t.bright;
 
   return (
     <AbsoluteFill style={{ background: canvasBg, color: canvasFg, fontFamily: t.sans, overflow: "hidden", opacity: exit }}>
-      <div style={{ position: "absolute", inset: 0, opacity: variant === "paper" ? 0.08 : 0.12, backgroundImage: `repeating-linear-gradient(0deg, transparent 0 5px, ${variant === "paper" ? t.base : t.bright} 6px)` }} />
-      <div style={{ position: "absolute", top: 180 + drift, right: -48, color: variant === "paper" ? `${t.base}0d` : `${t.bright}0d`, fontFamily: t.display, fontSize: 235, lineHeight: 0.8, letterSpacing: 5, writingMode: "vertical-rl", textTransform: "uppercase", whiteSpace: "nowrap" }}>{ghost}</div>
-      <div style={{ position: "absolute", top: 0, left: 0, width: 18, height: "100%", background: t.accent }} />
-      <div style={{ position: "absolute", top: 0, right: 0, width: 86, height: 18, background: t.accent }} />
-      <div style={{ position: "absolute", top: 55, left: 52, right: 52, display: "flex", alignItems: "center", justifyContent: "space-between", color: variant === "paper" ? `${t.base}aa` : t.mid, opacity: entrance }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
-          <StoryIcon name={icon} size={24} color={t.accent} />
-          <div style={{ fontFamily: t.mono, fontSize: 15, fontWeight: 700, letterSpacing: 2.2, textTransform: "uppercase", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eyebrow ?? "Documentary unit"}</div>
+      {/* Subtle paper texture — very faint, doesn't distract */}
+      <div style={{ position: "absolute", inset: 0, opacity: variant === "paper" ? 0.05 : 0.06, backgroundImage: `repeating-linear-gradient(0deg, transparent 0 5px, ${variant === "paper" ? t.base : t.bright} 6px)` }} />
+
+      {/* Eyebrow label only — no icon, no edition, no dot. Only if explicitly provided. */}
+      {eyebrow && (
+        <div style={{ position: "absolute", top: 48, left: 48, right: 48, display: "flex", alignItems: "center", opacity: entrance * 0.8 }}>
+          <div style={{ fontFamily: t.mono, fontSize: 14, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: variant === "paper" ? `${t.base}aa` : t.mid }}>
+            {eyebrow}
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", fontFamily: t.mono, fontSize: 12, letterSpacing: 1.4 }}>
-          <span style={{ width: 7, height: 7, background: t.accent, borderRadius: "50%" }} />
-          {edition}
-        </div>
-      </div>
-      <div style={{ position: "absolute", top: 98, left: 52, width: 150, height: 3, background: t.accent, transformOrigin: "left center", transform: `scaleX(${entrance})` }} />
-      <div style={{ position: "absolute", inset: "118px 48px 92px 52px", display: "flex", flexDirection: "column", justifyContent: "center", ...contentStyle }}>
+      )}
+
+      {/* Content area — extra bottom space for captions */}
+      <div style={{ position: "absolute", inset: "80px 48px 120px 48px", display: "flex", flexDirection: "column", justifyContent: "center", ...contentStyle }}>
         {children}
       </div>
-      <div style={{ position: "absolute", left: 52, right: 52, bottom: 40, display: "flex", alignItems: "center", justifyContent: "space-between", color: variant === "paper" ? `${t.base}99` : t.dim, opacity: entrance }}>
-        <div style={{ width: 32, height: 32, borderLeft: `2px solid ${t.accent}`, borderBottom: `2px solid ${t.accent}` }} />
-        <div style={{ fontFamily: t.mono, fontSize: 13, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", maxWidth: 430, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{footer ?? "Clipatro editorial desk"}</div>
-      </div>
+
+      {/* Footer — only if explicitly provided. No corner bracket. */}
+      {footer && (
+        <div style={{ position: "absolute", left: 48, right: 48, bottom: 36, opacity: entrance * 0.5 }}>
+          <div style={{ fontFamily: t.mono, fontSize: 12, fontWeight: 600, letterSpacing: 1.3, textTransform: "uppercase", color: variant === "paper" ? `${t.base}88` : t.dim, maxWidth: 430, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{footer}</div>
+        </div>
+      )}
     </AbsoluteFill>
   );
 };
@@ -201,8 +200,6 @@ export const EditorialImage: React.FC<EditorialImageProps> = ({
       ) : (
         <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", color: t.accent, backgroundImage: `repeating-linear-gradient(135deg, ${t.surface} 0 18px, ${t.elevated} 18px 36px)` }}><StoryIcon name={fallbackIcon} size={88} /></div>
       )}
-      <div style={{ position: "absolute", inset: 0, border: `1px solid ${t.base}88`, pointerEvents: "none" }} />
-      <div style={{ position: "absolute", left: 16, top: 16, width: 24, height: 24, borderLeft: `3px solid ${t.accent}`, borderTop: `3px solid ${t.accent}` }} />
     </div>
   );
 };

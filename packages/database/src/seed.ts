@@ -360,6 +360,35 @@ const CHANNELS: ChannelSeed[] = [
 		],
 		activeCharacterName: "Musachi",
 	},
+	{
+		name: "Evidence Room",
+		slug: "evidence-room",
+		niche:
+			"Short-form documentary shorts unpacking pivotal historical events, policy decisions, and social transformations. Each video leads with evidence — archival records, declassified documents, verified statistics — and builds a clear, authoritative narrative around what happened, why it mattered, and what remains uncertain. Pure narration over real imagery. No host, no characters, no dramatization — just the facts, the sources, and the consequences.",
+		locale: "en-US",
+		contentTypes: ["historical_event", "documentary_style", "true_case"],
+		targetDurationSeconds: 75,
+		sceneMin: 6,
+		sceneMax: 10,
+		storyStyle:
+			"authoritative, evidence-first, measured — lead with the fact, layer the context, cite the source, acknowledge the uncertainty. No speculation presented as fact. Build toward a clear conclusion and a memorable takeaway.",
+		visualStyle:
+			"Editorial documentary photography and archival imagery. Period-accurate textures, muted earth tones, dramatic natural light, weathered surfaces. Real images from Wikipedia/Wikimedia when available; AI-generated fallbacks only when no real image fits. Treatments: documentary, archive, monochrome, clean.",
+		imageProvider: "fal",
+		ttsProvider: "gemini",
+		ttsVoiceId: "Algenib",
+		aspectRatio: "9:16",
+		approvalEnabled: false,
+		llmConfig: DEEPSEEK_LLM_CONFIG,
+		imageModelCharacter: "fal-ai/flux-2/klein/9b/edit",
+		imageModelNonCharacter: "fal-ai/flux-2/klein/4b/edit",
+		researchEnabled: true,
+		duplicateAdjudicationEnabled: false,
+		videoGenerationEnabled: true,
+		videoTemplate: "documentary-9x16",
+		backgroundAudioFile: "background.mp3",
+		characters: [],
+	},
 ];
 
 // === Helpers ===

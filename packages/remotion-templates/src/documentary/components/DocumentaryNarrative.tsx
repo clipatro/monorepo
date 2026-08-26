@@ -1,8 +1,7 @@
 import React from "react";
-import { Easing, interpolate, useCurrentFrame } from "remotion";
 import type { ThemeConfig } from "../../themes/index.ts";
-import { DocumentaryCanvas, DocumentaryPill, DocumentaryReveal, EditorialImage, getDocumentaryTokens, type DocumentaryImageData } from "../canvas.tsx";
-import { StoryIcon, type StoryIconName } from "../../primitives/StoryIcon.tsx";
+import { DocumentaryCanvas, DocumentaryReveal, EditorialImage, getDocumentaryTokens, type DocumentaryImageData } from "../canvas.tsx";
+import { type StoryIconName } from "../../primitives/StoryIcon.tsx";
 
 interface TemplateProps<T> {
   data: T;
@@ -19,17 +18,15 @@ export interface HookHeadlineData extends DocumentaryImageData {
 }
 
 export const HookHeadline: React.FC<TemplateProps<HookHeadlineData>> = ({ data, theme, delay = 0 }) => {
-  const frame = useCurrentFrame();
   const t = getDocumentaryTokens(theme);
-  const sweep = interpolate(frame, [delay + 18, delay + 48], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.out(Easing.cubic) });
   return (
-    <DocumentaryCanvas theme={theme} delay={delay} eyebrow={data.kicker} icon={data.icon ?? "zap"} footer="Opening argument" contentStyle={{ justifyContent: "flex-end", paddingBottom: 54 }}>
-      {data.imageUrl ? <EditorialImage {...data} theme={theme} delay={delay + 2} pan="right" frameStyle={{ position: "absolute", inset: "20px -48px 310px 110px", border: 0, boxShadow: "none" }} /> : <div style={{ position: "absolute", top: 70, right: -48, width: 380, height: 430, background: t.accent, clipPath: "polygon(28% 0, 100% 0, 100% 100%, 0 72%)", opacity: 0.9 }} />}
+    <DocumentaryCanvas theme={theme} delay={delay} eyebrow={data.kicker} footer="Opening argument" contentStyle={{ justifyContent: "flex-end", paddingBottom: 90 }}>
+      {data.imageUrl ? <EditorialImage {...data} theme={theme} delay={delay + 2} pan="right" frameStyle={{ position: "absolute", inset: "20px -48px 310px 110px", border: 0, boxShadow: "none" }} /> : null}
       <DocumentaryReveal delay={delay + 10} direction="wipe" style={{ position: "relative", zIndex: 2 }}>
         <div style={{ fontFamily: t.display, fontSize: data.headline.length > 38 ? 88 : 106, lineHeight: 0.86, letterSpacing: 0.5, textTransform: "uppercase", maxWidth: 610, textShadow: data.imageUrl ? `0 5px 24px ${t.base}` : undefined }}>{data.headline}</div>
       </DocumentaryReveal>
       {data.emphasis ? <DocumentaryReveal delay={delay + 22} direction="left" style={{ position: "relative", zIndex: 2, marginTop: 18 }}><div style={{ display: "inline", padding: "3px 12px 8px", color: t.base, background: t.accent, fontFamily: t.serif, fontSize: 48, lineHeight: 1.15, fontStyle: "italic", boxDecorationBreak: "clone" }}>{data.emphasis}</div></DocumentaryReveal> : null}
-      {data.context ? <DocumentaryReveal delay={delay + 34} style={{ position: "relative", zIndex: 2, marginTop: 30, maxWidth: 560 }}><div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}><div style={{ width: 54 * sweep, height: 4, marginTop: 14, background: t.accent, flexShrink: 0 }} /><p style={{ color: t.mid, fontSize: 23, lineHeight: 1.42, margin: 0 }}>{data.context}</p></div></DocumentaryReveal> : null}
+      {data.context ? <DocumentaryReveal delay={delay + 34} style={{ position: "relative", zIndex: 2, marginTop: 30, maxWidth: 560 }}><p style={{ color: t.mid, fontSize: 23, lineHeight: 1.42, margin: 0 }}>{data.context}</p></DocumentaryReveal> : null}
     </DocumentaryCanvas>
   );
 };
@@ -63,15 +60,12 @@ export interface QuestionCardData {
 }
 
 export const QuestionCard: React.FC<TemplateProps<QuestionCardData>> = ({ data, theme, delay = 0 }) => {
-  const frame = useCurrentFrame();
   const t = getDocumentaryTokens(theme);
-  const rotation = interpolate(frame, [delay, delay + 90], [-12, 6], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   return (
-    <DocumentaryCanvas theme={theme} delay={delay} eyebrow={data.topic ?? "The central question"} icon={data.icon ?? "question"} footer="Interrogate the premise" variant="paper">
-      <div style={{ position: "absolute", right: -10, top: 100, width: 340, height: 340, border: `18px solid ${t.accent}`, borderRadius: "50%", transform: `rotate(${rotation}deg)`, opacity: 0.86 }} />
-      <div style={{ position: "absolute", right: 80, top: 176, color: t.accent, fontFamily: t.display, fontSize: 260, lineHeight: 0.8 }}>?</div>
+    <DocumentaryCanvas theme={theme} delay={delay} eyebrow={data.topic ?? "The central question"} footer="Interrogate the premise" variant="paper">
+      <div style={{ position: "absolute", right: 80, top: 176, color: t.accent, fontFamily: t.display, fontSize: 260, lineHeight: 0.8, opacity: 0.5 }}>?</div>
       <DocumentaryReveal delay={delay + 12} direction="wipe" style={{ position: "relative", width: 505 }}><h1 style={{ margin: 0, color: t.base, fontFamily: t.serif, fontSize: data.question.length > 82 ? 48 : 58, lineHeight: 1.08, letterSpacing: -2 }}>{data.question}</h1></DocumentaryReveal>
-      {data.prompt ? <DocumentaryReveal delay={delay + 30} direction="left" style={{ position: "relative", width: 455, marginTop: 44 }}><div style={{ display: "flex", gap: 18, color: `${t.base}bb`, fontSize: 21, lineHeight: 1.45 }}><StoryIcon name="search" size={32} color={t.accent} style={{ flexShrink: 0 }} /><span>{data.prompt}</span></div></DocumentaryReveal> : null}
+      {data.prompt ? <DocumentaryReveal delay={delay + 30} direction="left" style={{ position: "relative", width: 455, marginTop: 44 }}><div style={{ color: `${t.base}bb`, fontSize: 21, lineHeight: 1.45 }}>{data.prompt}</div></DocumentaryReveal> : null}
     </DocumentaryCanvas>
   );
 };
@@ -110,10 +104,10 @@ export interface ConclusionCardData {
 export const ConclusionCard: React.FC<TemplateProps<ConclusionCardData>> = ({ data, theme, delay = 0 }) => {
   const t = getDocumentaryTokens(theme);
   return (
-    <DocumentaryCanvas theme={theme} delay={delay} eyebrow={data.label ?? "What it means"} icon={data.icon ?? "flag"} footer="End of chapter" contentStyle={{ justifyContent: "flex-start", paddingTop: 90 }}>
+    <DocumentaryCanvas theme={theme} delay={delay} eyebrow={data.label ?? "What it means"} footer="End of chapter" contentStyle={{ justifyContent: "flex-start", paddingTop: 50 }}>
       <DocumentaryReveal delay={delay + 6} direction="wipe"><div style={{ fontFamily: t.display, fontSize: 112, lineHeight: 0.82, textTransform: "uppercase", maxWidth: 600 }}>{data.conclusion}</div></DocumentaryReveal>
-      <DocumentaryReveal delay={delay + 24} direction="right" style={{ margin: "52px -48px 0 -52px", padding: "36px 52px", color: t.base, background: t.accent }}><div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}><StoryIcon name="flag" size={42} /><div style={{ fontFamily: t.serif, fontSize: 29, lineHeight: 1.35, fontWeight: 700 }}>{data.takeaway}</div></div></DocumentaryReveal>
-      {data.closingQuestion ? <DocumentaryReveal delay={delay + 40} style={{ marginTop: 38 }}><DocumentaryPill theme={theme} inverted><StoryIcon name="question" size={16} style={{ marginRight: 8 }} />{data.closingQuestion}</DocumentaryPill></DocumentaryReveal> : null}
+      <DocumentaryReveal delay={delay + 24} direction="right" style={{ margin: "52px -48px 0 -52px", padding: "36px 52px", color: t.base, background: t.accent }}><div style={{ fontFamily: t.serif, fontSize: 29, lineHeight: 1.35, fontWeight: 700 }}>{data.takeaway}</div></DocumentaryReveal>
+      {data.closingQuestion ? <DocumentaryReveal delay={delay + 40} style={{ marginTop: 38 }}><div style={{ fontFamily: t.serif, fontSize: 27, lineHeight: 1.3, fontStyle: "italic", color: t.mid }}>{data.closingQuestion}</div></DocumentaryReveal> : null}
     </DocumentaryCanvas>
   );
 };
