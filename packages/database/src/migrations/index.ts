@@ -17,6 +17,7 @@ import { migration009 } from "./009-multi-active-characters.ts";
 import { migration010 } from "./010-video-templates.ts";
 import { migration011 } from "./011-channel-background-audio.ts";
 import { migration012 } from "./012-flow-scene-type.ts";
+import { migration013 } from "./013-platform-accounts-and-publish-jobs.ts";
 
 export interface Migration {
   id: number;
@@ -38,5 +39,6 @@ export function getMigrations(): Migration[] {
     migration010,
     migration011,
     migration012,
+    migration013,
   ];
 }

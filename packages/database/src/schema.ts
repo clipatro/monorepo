@@ -427,3 +427,32 @@ export interface ProviderUsageRow {
   is_free: number; // boolean as 0/1
   created_at: string;
 }
+
+// === Phase 10 — Library + Publishing (D023) ===
+
+export interface PlatformAccountRow {
+  id: string;
+  channel_id: string;
+  platform: string; // SocialPlatform
+  provider_account_id: string; // Zernio accountId
+  username: string | null;
+  display_name: string | null;
+  is_active: number; // 1 = active, 0 = disconnected
+  metadata_json: string | null; // JSON: provider-specific metadata
+  connected_at: string;
+}
+
+export interface PublishJobRow {
+  id: string;
+  channel_id: string;
+  video_asset_id: string | null;
+  run_id: string | null;
+  status: string; // PublishJobStatus
+  platforms_json: string; // JSON: array of { platform, accountId }
+  metadata_json: string; // JSON: PublishMetadata
+  provider_post_id: string | null; // Zernio post _id
+  result_json: string | null; // JSON: array of PublishJobPlatformResult
+  error: string | null;
+  created_at: string;
+  completed_at: string | null;
+}

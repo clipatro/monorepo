@@ -29,6 +29,7 @@ COPY services/research-service/package.json     ./services/research-service/
 COPY services/story-service/package.json        ./services/story-service/
 COPY services/voice-service/package.json        ./services/voice-service/
 COPY services/video-service/package.json        ./services/video-service/
+COPY services/publish-service/package.json      ./services/publish-service/
 COPY services/workflow-service/package.json     ./services/workflow-service/
 COPY web-frontend/package.json          ./web-frontend/
 

@@ -31,6 +31,7 @@ COPY services/research-service/package.json     ./services/research-service/
 COPY services/story-service/package.json        ./services/story-service/
 COPY services/voice-service/package.json        ./services/voice-service/
 COPY services/video-service/package.json        ./services/video-service/
+COPY services/publish-service/package.json      ./services/publish-service/
 COPY services/workflow-service/package.json     ./services/workflow-service/
 COPY web-frontend/package.json          ./web-frontend/
 
@@ -43,12 +44,34 @@ FROM base AS development
 
 # System dependencies:
 # - ffmpeg/ffprobe: audio/video processing (voice-service and video-service)
-# - zip: export package compression (voice-service)
+# - zip/unzip: export package compression and video-service bundle extraction
 # - ca-certificates: TLS for outbound API calls
+# - Chrome/Chromium libs: required by Remotion's headless Chrome renderer
+#   (video-service /render-documentary). See https://remotion.dev/docs/troubleshooting/browser-launch
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     zip \
+    unzip \
     ca-certificates \
+    libnss3 \
+    libxss1 \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libcups2 \
+    libdbus-1-3 \
+    libdrm2 \
+    libgbm1 \
+    libgtk-3-0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libxkbcommon0 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libx11-xcb1 \
+    libxshmfence-dev \
   && rm -rf /var/lib/apt/lists/*
 
 # Root dependencies and config are copied separately for layer reuse.

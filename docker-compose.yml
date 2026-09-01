@@ -45,6 +45,7 @@ services:
       EMBEDDING_SERVICE_URL: http://embedding-service:3005
       WORKFLOW_SERVICE_URL: http://workflow-service:3006
       VIDEO_SERVICE_URL: http://video-service:3007
+      PUBLISH_SERVICE_URL: http://publish-service:3008
     restart: unless-stopped
 
   # === Story Service ===
@@ -197,6 +198,24 @@ services:
     environment:
       PORT: 3007
       API_GATEWAY_URL: http://api-gateway:3000
+    restart: unless-stopped
+
+  # === Publish Service (library + social media publishing via Zernio) ===
+  publish-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+      args:
+        SERVICE_DIR: publish-service
+        PORT: 3008
+    ports:
+      - "3008:3008"
+    volumes:
+      - clipatro-data:/app/data
+    env_file: .env
+    environment:
+      PORT: 3008
+      ARTIFACT_STORE_PATH: /app/data/artifacts
     restart: unless-stopped
 
   # === Web Frontend (React + Vite, Bun dev server) ===

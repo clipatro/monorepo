@@ -308,6 +308,90 @@ export interface GalleryImage {
   narrationText: string | null;
 }
 
+// === Publish types (Phase 10, D023) ===
+
+export type SocialPlatform =
+  | "youtube" | "tiktok" | "instagram" | "facebook"
+  | "twitter" | "linkedin" | "threads" | "pinterest"
+  | "reddit" | "bluesky" | "snapchat" | "telegram"
+  | "discord" | "slack" | "googlebusiness";
+
+export interface PlatformAccount {
+  id: string;
+  channelId: string;
+  platform: SocialPlatform;
+  providerAccountId: string;
+  username: string | null;
+  displayName: string | null;
+  isActive: boolean;
+  metadata: Record<string, unknown> | null;
+  connectedAt: string;
+}
+
+export interface SupportedPlatform {
+  value: string;
+  label: string;
+  icon: string;
+}
+
+export type PublishJobStatus =
+  | "pending" | "uploading" | "publishing"
+  | "published" | "failed" | "cancelled";
+
+export interface PublishJobPlatformResult {
+  platform: SocialPlatform;
+  accountId: string;
+  status: "pending" | "publishing" | "published" | "failed";
+  postUrl: string | null;
+  postId: string | null;
+  error: string | null;
+}
+
+export interface PublishJob {
+  id: string;
+  channelId: string;
+  videoAssetId: string | null;
+  runId: string | null;
+  status: PublishJobStatus;
+  platforms: Array<{ platform: SocialPlatform; accountId: string }>;
+  metadata: PublishMetadata;
+  providerPostId: string | null;
+  results: PublishJobPlatformResult[];
+  error: string | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface PublishMetadata {
+  title: string;
+  description: string;
+  tags: string[];
+  hashtags: string[];
+  platformOverrides?: Record<string, unknown>;
+  scheduledFor: string | null;
+  publishNow: boolean;
+}
+
+export interface LibraryVideo {
+  id: string;
+  channelId: string;
+  runId: string | null;
+  storyTitle: string | null;
+  runTopic: string | null;
+  runStatus: string | null;
+  channelName?: string | null;
+  filePath: string;
+  mimeType: string;
+  width: number | null;
+  height: number | null;
+  durationMs: number | null;
+  checksum: string;
+  provider: string | null;
+  model: string | null;
+  costUsd: number | null;
+  createdAt: string;
+}
+
 // === Voiceover with story title (cross-story list) ===
 
 export interface VoiceoverWithStory extends Voiceover {
@@ -944,4 +1028,81 @@ export const api = {
   // Video
   videoStreamUrl: (runId: string) => `/api/video/video/${runId}.mp4`,
   videoDownloadUrl: (runId: string) => `/api/video/download/${runId}`,
+
+  // Publish / Library (Phase 10, D023)
+  getSupportedPlatforms: () =>
+    apiFetch<{ platforms: SupportedPlatform[] }>("/api/publish/platforms").then((r) => r.platforms),
+
+  getPlatformAccounts: (channelId: string, platform?: string) => {
+    const qs = new URLSearchParams();
+    if (platform) qs.set("platform", platform);
+    const s = qs.toString();
+    return apiFetch<{ accounts: PlatformAccount[] }>(`/api/publish/accounts/${channelId}${s ? `?${s}` : ""}`).then((r) => r.accounts);
+  },
+
+  connectPlatform: (channelId: string, platform: string, redirectUrl?: string) =>
+    apiFetch<{ authUrl: string; state: string }>("/api/publish/accounts/connect", {
+      method: "POST",
+      body: JSON.stringify({ channelId, platform, redirectUrl }),
+    }),
+
+  callbackPlatform: (channelId: string, platform: string, accountId: string, username?: string, displayName?: string) =>
+    apiFetch<{ id: string; created?: boolean; updated?: boolean }>("/api/publish/accounts/callback", {
+      method: "POST",
+      body: JSON.stringify({ channelId, platform, accountId, username, displayName }),
+    }),
+
+  disconnectPlatform: (channelId: string, platform: string, accountId: string) =>
+    apiFetch<{ disconnected: boolean }>(`/api/publish/accounts/${channelId}/${platform}/${accountId}`, {
+      method: "DELETE",
+    }),
+
+  publishVideo: (params: {
+    channelId: string;
+    videoAssetId?: string;
+    runId?: string;
+    platforms: Array<{ platform: string; accountId: string }>;
+    metadata: PublishMetadata;
+  }) =>
+    apiFetch<{ jobId: string; status: PublishJobStatus; providerPostId: string | null; results: PublishJobPlatformResult[]; error: string | null }>(
+      "/api/publish/publish",
+      { method: "POST", body: JSON.stringify(params) },
+    ),
+
+  listPublishJobs: (channelId: string, params?: ListParams) => {
+    const qs = new URLSearchParams();
+    if (params?.limit !== undefined) qs.set("limit", String(params.limit));
+    if (params?.offset !== undefined) qs.set("offset", String(params.offset));
+    const s = qs.toString();
+    return apiFetch<{ jobs: PublishJob[] }>(`/api/publish/jobs/${channelId}${s ? `?${s}` : ""}`).then((r) => r.jobs);
+  },
+
+  getPublishJob: (jobId: string) =>
+    apiFetch<PublishJob>(`/api/publish/job/${jobId}`),
+
+  listLibraryVideos: (channelId: string, params?: ListParams) => {
+    const qs = new URLSearchParams();
+    if (params?.search) qs.set("search", params.search);
+    if (params?.limit !== undefined) qs.set("limit", String(params.limit));
+    if (params?.offset !== undefined) qs.set("offset", String(params.offset));
+    const s = qs.toString();
+    return apiFetch<{ videos: LibraryVideo[]; total: number }>(`/api/publish/library/${channelId}${s ? `?${s}` : ""}`).then((r) => ({
+      items: r.videos,
+      total: r.total,
+    }));
+  },
+
+  listAllLibraryVideos: (params?: ListParams) => {
+    const qs = new URLSearchParams();
+    if (params?.search) qs.set("search", params.search);
+    if (params?.limit !== undefined) qs.set("limit", String(params.limit));
+    if (params?.offset !== undefined) qs.set("offset", String(params.offset));
+    const s = qs.toString();
+    return apiFetch<{ videos: LibraryVideo[]; total: number }>(`/api/publish/library/all${s ? `?${s}` : ""}`).then((r) => ({
+      items: r.videos,
+      total: r.total,
+    }));
+  },
+
+  libraryVideoUrl: (assetId: string) => `/api/publish/library/video/${assetId}`,
 };

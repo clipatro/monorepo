@@ -42,6 +42,22 @@ import type {
 import { requiresResearch as typeRequiresResearch, requiresEvidence as typeRequiresEvidence } from "@automation/contracts";
 import { loadConfig } from "@automation/config";
 import { getDb } from "@automation/database";
+import { unlink as fsUnlink } from "node:fs/promises";
+
+// D022: Manifest type for Remotion composition setup
+interface ManifestRow {
+	audio: { durationSec: string };
+	scenes: {
+		count: number;
+		imageTimeline: Array<{
+			scene: number;
+			imageStartSec: string;
+			imageEndSec: string;
+			imageDurationSec: string;
+		}>;
+	};
+	storyTitle: string;
+}
 
 const _config = loadConfig("workflow-service");
 const STORY_SERVICE_URL = _config.services.storyService;
@@ -49,6 +65,7 @@ const RESEARCH_SERVICE_URL = _config.services.researchService;
 const IMAGE_SERVICE_URL = _config.services.imageService;
 const VOICE_SERVICE_URL = _config.services.voiceService;
 const VIDEO_SERVICE_URL = _config.services.videoService;
+const API_GATEWAY_URL = _config.services.apiGateway;
 
 // === Helper: fetch with error handling ===
 
@@ -1056,7 +1073,7 @@ export const packageAssemblyHandler: StepHandler = async (
 						);
 						const zipPath = packagePath ?? `${exportDir}/export.zip`;
 						// Remove old zip if exists, then create new one
-						try { await fs.unlink(zipPath); } catch { /* ok if not exists */ }
+						try { await fsUnlink(zipPath); } catch { /* ok if not exists */ }
 						execSync(`cd "${exportDir}" && zip -r -0 "${zipPath}" .`, {
 							maxBuffer: 200 * 1024 * 1024,
 						});
@@ -1204,7 +1221,7 @@ export const packageAssemblyHandler: StepHandler = async (
 							JSON.stringify(manifest, null, 2),
 						);
 						const zipPath = packagePath ?? `${exportDir}/export.zip`;
-						try { await fs.unlink(zipPath); } catch { /* ok if not exists */ }
+						try { await fsUnlink(zipPath); } catch { /* ok if not exists */ }
 						execSync(`cd "${exportDir}" && zip -r -0 "${zipPath}" .`, {
 							maxBuffer: 200 * 1024 * 1024,
 						});
@@ -1232,6 +1249,55 @@ export const packageAssemblyHandler: StepHandler = async (
 						};
 					}
 				}
+			}
+		}
+
+		// D022: For Remotion-based templates (documentary), generate the
+		// render.tsx composition entry file and copy assets to public/.
+		// The video-service /render-documentary endpoint will use these
+		// to render the final MP4 via the Remotion CLI.
+		const isRemotionTemplate = tmpl?.render.renderer === "remotion";
+		if (isRemotionTemplate && tmpl) {
+			ctx.log("Remotion template detected — generating documentary composition");
+
+			try {
+				const { setupRemotionComposition } = await import("./remotion-composition.ts");
+
+				const artifactBase = process.env.ARTIFACT_STORE_PATH ?? "./data/artifacts";
+				const exportDir = `${artifactBase}/channels/${ctx.channelId}/runs/${ctx.runId}/export`;
+
+				const compLlm = stepLlm(ctx, "scene_planning");
+				const compResult = await setupRemotionComposition(
+					ctx.runId,
+					storyId,
+					ctx.channelId,
+					exportDir,
+					manifest as unknown as ManifestRow,
+					tmpl,
+					compLlm.llmProvider,
+					compLlm.llmModel,
+				);
+
+				ctx.log(
+					`Documentary composition generated: ${compResult.compositionId} (${compResult.totalFrames} frames)`,
+				);
+
+				// Update the export ZIP to include render.tsx + public/
+				try {
+					const { execSync } = await import("node:child_process");
+					const zipPath = packagePath ?? `${exportDir}/export.zip`;
+					try { await fsUnlink(zipPath); } catch { /* ok if not exists */ }
+					execSync(`cd "${exportDir}" && zip -r -0 "${zipPath}" .`, {
+						maxBuffer: 200 * 1024 * 1024,
+					});
+					ctx.log(`Rebuilt export ZIP with Remotion composition: ${zipPath}`);
+				} catch (zipErr) {
+					ctx.log(`WARNING: Failed to rebuild export ZIP with Remotion files: ${zipErr}`);
+				}
+			} catch (compErr) {
+				ctx.log(
+					`WARNING: Failed to generate Remotion composition: ${compErr instanceof Error ? compErr.message : String(compErr)} — falling back to FFmpeg render`,
+				);
 			}
 		}
 
@@ -1274,19 +1340,29 @@ export const videoGenerationHandler: StepHandler = async (
 
 	ctx.log(`Generating video for run: ${ctx.runId}`);
 
-	// D017: Dispatch to the right render endpoint based on the template
+	// D017: Dispatch to the right render endpoint based on the template.
+	// Documentary templates use Remotion (render.renderer === "remotion"),
+	// clip templates use /render-clips, Flow templates use /render-flow,
+	// and everything else falls back to the FFmpeg /generate endpoint.
 	const tmpl = getTemplate(ctx);
 	const sceneType = tmpl?.scenePlan.sceneType;
+	const isRemotionTemplate = tmpl?.render.renderer === "remotion";
 	const isClipTemplate = sceneType === "video-clip-scene";
 	const isFlowTemplate = sceneType === "flow-hybrid";
-	const renderEndpoint = isFlowTemplate ? "/render-flow" : isClipTemplate ? "/render-clips" : "/generate";
+	const renderEndpoint = isRemotionTemplate
+		? "/render-documentary"
+		: isFlowTemplate
+			? "/render-flow"
+			: isClipTemplate
+				? "/render-clips"
+				: "/generate";
 
-	// For clip/flow templates, pass the template config so the renderer knows the layout
+	// For clip/flow/remotion templates, pass the template config so the renderer knows the layout
 	const requestBody: Record<string, unknown> = {
 		runId: ctx.runId,
-		apiGatewayUrl: "http://localhost:3000",
+		apiGatewayUrl: API_GATEWAY_URL,
 	};
-	if ((isClipTemplate || isFlowTemplate) && tmpl) {
+	if ((isClipTemplate || isFlowTemplate || isRemotionTemplate) && tmpl) {
 		requestBody.templateConfig = tmpl;
 		// Check if voiceover was generated
 		const voiceGen = ctx.dependencyResults.voice_generation;

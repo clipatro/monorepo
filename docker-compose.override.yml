@@ -28,5 +28,8 @@ services:
   video-service:
     init: true
 
+  publish-service:
+    init: true
+
   web-frontend:
     init: true

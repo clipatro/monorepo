@@ -9,14 +9,14 @@
  * Flow:
  * 1. Resolve the export directory (download from gateway or use explicit path)
  * 2. Verify render.tsx + public/ assets exist
- * 3. Run `npx remotion render` to produce the MP4
+ * 3. Run `bunx remotion render` to produce the MP4
  * 4. Upload the result back to the api-gateway (or return file path)
  */
 
 import type { Hono, AppConfig } from "@automation/server";
 import { zValidator } from "@hono/zod-validator";
 import { join } from "node:path";
-import { readFile, writeFile, mkdir, rm, access } from "node:fs/promises";
+import { readFile, writeFile, mkdir, rm, access, symlink } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
@@ -124,6 +124,21 @@ export function registerDocumentaryRoutes(app: Hono, _config: AppConfig): void {
         );
       }
 
+      // === 1b. Symlink node_modules from /app so Remotion can resolve
+      // @automation/remotion-templates and other workspace packages.
+      // The render.tsx imports from workspace packages that only exist in
+      // /app/node_modules — without this symlink, Remotion's bundler can't
+      // resolve them from the temp export directory.
+      const nodeModulesLink = join(exportDir, "node_modules");
+      if (!existsSync(nodeModulesLink)) {
+        try {
+          await symlink("/app/node_modules", nodeModulesLink, "dir");
+        } catch {
+          // non-critical — if symlink fails, Remotion will fail with a
+          // module resolution error that we'll surface in the response
+        }
+      }
+
       // === 2. Download background audio if provided ===
       if (backgroundAudioUrl) {
         ctx_log(c, `Downloading background audio from ${backgroundAudioUrl}`);
@@ -164,18 +179,22 @@ export function registerDocumentaryRoutes(app: Hono, _config: AppConfig): void {
         `Rendering with Remotion CLI (composition: ${compositionId})...`,
       );
 
-      const cmd = `npx remotion render "${renderEntryPath}" "${compositionId}" "${outputPath}" --public-dir="${publicDir}" --log=verbose`;
+      const cmd = `bunx remotion render "${renderEntryPath}" "${compositionId}" "${outputPath}" --public-dir="${publicDir}" --log=verbose`;
 
       try {
         const { stdout, stderr } = await execAsync(cmd, {
           maxBuffer: 100 * 1024 * 1024,
           timeout: 600000, // 10 minutes max
         });
-        if (stderr && !stderr.includes("warn")) {
+        if (stdout) {
+          ctx_log(c, `Remotion stdout (last 300 chars): ${stdout.slice(-300)}`);
+        }
+        if (stderr && !stderr.toLowerCase().includes("warn")) {
           ctx_log(c, `Remotion stderr (first 500 chars): ${stderr.slice(0, 500)}`);
         }
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
+        ctx_log(c, `Remotion render FAILED: ${errMsg.slice(0, 500)}`);
         return c.json(
           {
             error: "Remotion render failed",
