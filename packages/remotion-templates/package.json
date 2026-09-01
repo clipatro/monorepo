@@ -12,9 +12,10 @@
     "./primitives/*": "./src/primitives/*.tsx"
   },
   "dependencies": {
+    "@remotion/google-fonts": "4.0.411",
     "lucide-react": "^1.33.0",
     "react": "^19.1.0",
-    "remotion": "^4.0.411"
+    "remotion": "4.0.411"
   },
   "peerDependencies": {
     "react": "^19.0.0"

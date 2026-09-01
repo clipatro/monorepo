@@ -29,6 +29,8 @@ import { documentaryRegistry } from "../documentary/registry.ts";
 import { mediaRegistry } from "../documentary/media-registry.ts";
 import { getMysteryComponentCapability, type MysteryComponentCapability } from "../mystery/capabilities.ts";
 import { mysteryRegistry } from "../mystery/registry.ts";
+import { getKidsComponentCapability, type KidsComponentCapability } from "../kids/capabilities.ts";
+import { kidsRegistry } from "../kids/registry.ts";
 
 export type TemplateCategory =
   | "Charts & Data"
@@ -56,7 +58,7 @@ export interface TemplateDefinition {
 }
 
 export interface TemplateEntry extends TemplateDefinition {
-  capability: ComponentCapability | MysteryComponentCapability;
+  capability: ComponentCapability | MysteryComponentCapability | KidsComponentCapability;
 }
 
 // ─── Sample data for previews ────────────────────────────────────────────────
@@ -202,10 +204,11 @@ const templateDefinitions: TemplateDefinition[] = [
   ...documentaryRegistry,
   ...mediaRegistry,
   ...mysteryRegistry,
+  ...kidsRegistry,
 ];
 
 export const registry: TemplateEntry[] = templateDefinitions.map((definition) => {
-  const capability = getComponentCapability(definition.slug) ?? getMysteryComponentCapability(definition.slug);
+  const capability = getComponentCapability(definition.slug) ?? getMysteryComponentCapability(definition.slug) ?? getKidsComponentCapability(definition.slug);
   if (!capability) throw new Error(`Missing component capability metadata: ${definition.slug}`);
   return { ...definition, capability };
 });

@@ -7,6 +7,7 @@
       "dependencies": {
         "@hono/zod-validator": "^0.7.0",
         "@huggingface/transformers": "^4.2.0",
+        "@remotion/google-fonts": "4.0.411",
         "@xenova/transformers": "^2.17.2",
         "@xyflow/react": "^12.8.2",
         "chrome-remote-interface": "0.34.0",
@@ -92,9 +93,10 @@
       "name": "@automation/remotion-templates",
       "version": "0.0.0",
       "dependencies": {
+        "@remotion/google-fonts": "4.0.411",
         "lucide-react": "^1.33.0",
         "react": "^19.1.0",
-        "remotion": "^4.0.411",
+        "remotion": "4.0.411",
       },
       "peerDependencies": {
         "react": "^19.0.0",
@@ -607,6 +609,8 @@
     "@remotion/compositor-linux-x64-musl": ["@remotion/compositor-linux-x64-musl@4.0.411", "", { "os": "linux", "cpu": "x64" }, "sha512-lGpj6Trz3EjgHfzXtU13tC+SL11qivWw4MTiHRQj6a1HNhmBVwIIs6olTSWEj6/Hm8B9V9GnDWc3D9ONd6PWlA=="],
 
     "@remotion/compositor-win32-x64-msvc": ["@remotion/compositor-win32-x64-msvc@4.0.410", "", { "os": "win32", "cpu": "x64" }, "sha512-ELKZigwUi63RMFWM7key7zC6VCCsYEGhvxj7NL2wLDzqXXb7ifp0rA1cFLyGJ2VJNPY5H8mKhoF+4cfenNcUag=="],
+
+    "@remotion/google-fonts": ["@remotion/google-fonts@4.0.411", "", { "dependencies": { "remotion": "4.0.411" } }, "sha512-oS68ct05nBnQCGc66p784OqOyih2OX8wV2Ei6GMJt2fKs+DZIpCuGIPD41n9o5QSA/SVoiYo6yK3zIwfr6JV6A=="],
 
     "@remotion/licensing": ["@remotion/licensing@4.0.411", "", {}, "sha512-GkowjXFXXDQZSOd+3GPY1YmXzwuJmZdlPrzOASfN8ToOv86mamzHFb1ba1Omzi5qbs5KBrhPnKNsgKu7CDeSFw=="],
 
@@ -1581,8 +1585,6 @@
     "zod-to-json-schema": ["zod-to-json-schema@3.25.2", "", { "peerDependencies": { "zod": "^3.25.28 || ^4" } }, "sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA=="],
 
     "zustand": ["zustand@5.0.15", "", { "peerDependencies": { "@types/react": ">=18.0.0", "immer": ">=9.0.6", "react": ">=18.0.0", "use-sync-external-store": ">=1.2.0" }, "optionalPeers": ["@types/react", "immer", "react", "use-sync-external-store"] }, "sha512-MpSEjRiBkA9crSYeOUH32rJC7SVqAbm0Fqcqge/bUi2PPoLcBWKOsG+C8mevmpr8TwXHBVkChbbJiyvkE+i/3A=="],
-
-    "@automation/remotion-templates/remotion": ["remotion@4.0.516", "", { "peerDependencies": { "react": ">=16.8.0", "react-dom": ">=16.8.0" } }, "sha512-soUOkBf7xMfhWIZuZ82pf2iHmsumjtnRVCztA27wXd8xjcM6YSPI3LPNL+x/wSo7eiUadkF6GBIpDGU1l6bAzg=="],
 
     "@automation/server/zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
 

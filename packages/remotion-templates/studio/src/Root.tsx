@@ -9,7 +9,7 @@
  * and the studio will instantly reflect your changes.
  */
 import React from "react";
-import { Composition, AbsoluteFill, useCurrentFrame } from "remotion";
+import { Composition, AbsoluteFill, useCurrentFrame, Series } from "remotion";
 import {
   registry,
   archiveTheme,
@@ -18,6 +18,7 @@ import {
   forestTheme,
   royalTheme,
   mysteryTheme,
+  kidsTheme,
   AnimatedBackground,
   BarChart,
   LineChart,
@@ -31,6 +32,8 @@ import {
   type PieChartData,
   type AnimatedListData,
   type CircularProgressData,
+  kidsRegistry,
+  loadKidsFonts,
 } from "@automation/remotion-templates";
 
 // ─── Theme switcher wrapper ──────────────────────────────────────────────────
@@ -213,7 +216,7 @@ export const RemotionRoot: React.FC = () => {
         );
       })}
 
-      {[archiveTheme, midnightTheme, sunsetTheme, forestTheme, royalTheme, mysteryTheme].flatMap((theme) =>
+      {[archiveTheme, midnightTheme, sunsetTheme, forestTheme, royalTheme, mysteryTheme, kidsTheme].flatMap((theme) =>
         registry
           .filter((template) => ["Narrative", "Facts & Data", "Evidence", "People & Places", "Explainers", "Image & Media"].includes(template.category))
           .map((template) => {
@@ -352,6 +355,72 @@ export const RemotionRoot: React.FC = () => {
         width={720}
         height={1280}
       />
+
+      {/* ─── Kids Story Preview — full-bleed storytelling sequence ──────────── */}
+      {/* Sequences all 10 refactored kids components using existing registry data */}
+      <Composition
+        id="kids-story-preview"
+        component={KidsStoryPreview}
+        durationInFrames={kidsRegistry.reduce((sum, e) => sum + e.durationInFrames, 0)}
+        fps={30}
+        width={720}
+        height={1280}
+        defaultProps={{}}
+      />
+
+      {/* ─── Butterfly Story — full end-to-end narrated kids video ─────────── */}
+      <Composition
+        id="butterfly-story"
+        component={ButterflyStory}
+        durationInFrames={butterflyTotalFrames}
+        fps={30}
+        width={720}
+        height={1280}
+        defaultProps={{}}
+      />
+
+      {/* ─── Milo and the Little Star — cinematic children's story ────────── */}
+      <Composition
+        id="milo-star-story"
+        component={MiloStarStory}
+        durationInFrames={miloTotalFrames}
+        fps={30}
+        width={720}
+        height={1280}
+        defaultProps={{}}
+      />
     </>
   );
 };
+
+// ─── Kids Story Preview — sequences all kids components for visual eval ──────
+
+const KidsStoryPreview: React.FC = () => {
+  loadKidsFonts();
+
+  return (
+    <AbsoluteFill style={{ background: "#0a0a0a" }}>
+      <Series>
+        {kidsRegistry.map((entry, i) => {
+          const Comp = entry.component;
+          return (
+            <Series.Sequence
+              key={entry.slug}
+              durationInFrames={entry.durationInFrames}
+            >
+              <Comp {...(entry.defaultProps as Record<string, unknown>)} theme={kidsTheme} />
+            </Series.Sequence>
+          );
+        })}
+      </Series>
+    </AbsoluteFill>
+  );
+};
+
+// ─── Butterfly Story — full end-to-end kids video with narration + music ──────
+
+import { ButterflyStory, TOTAL_FRAMES as butterflyTotalFrames } from "./ButterflyStory.tsx";
+
+// ─── Milo and the Little Star — cinematic children's story video ─────────────
+
+import { MiloStarStory, MILO_TOTAL_FRAMES as miloTotalFrames } from "./MiloStarStory.tsx";

@@ -1,0 +1,169 @@
+{
+  "model": "gemini-3.1-flash-image",
+  "totalImages": 9,
+  "totalCost": 0.948382,
+  "averageCostPerImage": 0.10537577777777778,
+  "images": [
+    {
+      "sceneId": "scene-1",
+      "success": false,
+      "width": 0,
+      "height": 0,
+      "resolutionTier": "unknown",
+      "promptTokens": 0,
+      "outputTokens": 0,
+      "imageOutputTokens": 0,
+      "cost": {
+        "inputCost": 0,
+        "outputCost": 0,
+        "imageCost": 0,
+        "totalCost": 0
+      },
+      "error": "The operation timed out."
+    },
+    {
+      "sceneId": "scene-2",
+      "success": true,
+      "width": 768,
+      "height": 1376,
+      "resolutionTier": "2k",
+      "promptTokens": 303,
+      "outputTokens": 1375,
+      "imageOutputTokens": 0,
+      "cost": {
+        "inputCost": 0.000152,
+        "outputCost": 0.004125,
+        "imageCost": 0.101,
+        "totalCost": 0.105277
+      }
+    },
+    {
+      "sceneId": "scene-3",
+      "success": true,
+      "width": 768,
+      "height": 1376,
+      "resolutionTier": "2k",
+      "promptTokens": 294,
+      "outputTokens": 1330,
+      "imageOutputTokens": 0,
+      "cost": {
+        "inputCost": 0.000147,
+        "outputCost": 0.00399,
+        "imageCost": 0.101,
+        "totalCost": 0.105137
+      }
+    },
+    {
+      "sceneId": "scene-4",
+      "success": true,
+      "width": 768,
+      "height": 1376,
+      "resolutionTier": "2k",
+      "promptTokens": 300,
+      "outputTokens": 1425,
+      "imageOutputTokens": 0,
+      "cost": {
+        "inputCost": 0.00015,
+        "outputCost": 0.004275,
+        "imageCost": 0.101,
+        "totalCost": 0.105425
+      }
+    },
+    {
+      "sceneId": "scene-5",
+      "success": true,
+      "width": 768,
+      "height": 1376,
+      "resolutionTier": "2k",
+      "promptTokens": 300,
+      "outputTokens": 1446,
+      "imageOutputTokens": 0,
+      "cost": {
+        "inputCost": 0.00015,
+        "outputCost": 0.004338,
+        "imageCost": 0.101,
+        "totalCost": 0.105488
+      }
+    },
+    {
+      "sceneId": "scene-6",
+      "success": true,
+      "width": 768,
+      "height": 1376,
+      "resolutionTier": "2k",
+      "promptTokens": 297,
+      "outputTokens": 1397,
+      "imageOutputTokens": 0,
+      "cost": {
+        "inputCost": 0.000149,
+        "outputCost": 0.004191,
+        "imageCost": 0.101,
+        "totalCost": 0.10534
+      }
+    },
+    {
+      "sceneId": "scene-7",
+      "success": true,
+      "width": 768,
+      "height": 1376,
+      "resolutionTier": "2k",
+      "promptTokens": 300,
+      "outputTokens": 1444,
+      "imageOutputTokens": 0,
+      "cost": {
+        "inputCost": 0.00015,
+        "outputCost": 0.004332,
+        "imageCost": 0.101,
+        "totalCost": 0.105482
+      }
+    },
+    {
+      "sceneId": "scene-8",
+      "success": true,
+      "width": 768,
+      "height": 1376,
+      "resolutionTier": "2k",
+      "promptTokens": 301,
+      "outputTokens": 1430,
+      "imageOutputTokens": 0,
+      "cost": {
+        "inputCost": 0.000151,
+        "outputCost": 0.00429,
+        "imageCost": 0.101,
+        "totalCost": 0.105441
+      }
+    },
+    {
+      "sceneId": "scene-9",
+      "success": true,
+      "width": 768,
+      "height": 1376,
+      "resolutionTier": "2k",
+      "promptTokens": 297,
+      "outputTokens": 1401,
+      "imageOutputTokens": 0,
+      "cost": {
+        "inputCost": 0.000149,
+        "outputCost": 0.004203,
+        "imageCost": 0.101,
+        "totalCost": 0.105352
+      }
+    },
+    {
+      "sceneId": "scene-10",
+      "success": true,
+      "width": 768,
+      "height": 1376,
+      "resolutionTier": "2k",
+      "promptTokens": 294,
+      "outputTokens": 1431,
+      "imageOutputTokens": 0,
+      "cost": {
+        "inputCost": 0.000147,
+        "outputCost": 0.004293,
+        "imageCost": 0.101,
+        "totalCost": 0.10544
+      }
+    }
+  ]
+}

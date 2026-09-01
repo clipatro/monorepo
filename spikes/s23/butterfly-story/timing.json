@@ -1,0 +1,71 @@
+{
+  "totalDurationSec": 54.4,
+  "voice": "af_heart",
+  "model": "onnx-community/Kokoro-82M-v1.0-ONNX",
+  "segments": [
+    {
+      "sceneId": "title",
+      "component": "KidsTitleCard",
+      "text": "Have you ever wondered how a butterfly gets its wings? It's one of the most amazing journeys in all of nature!",
+      "durationSec": 6.825,
+      "startSec": 0,
+      "imageQuery": "monarch butterfly on flower"
+    },
+    {
+      "sceneId": "egg-caterpillar",
+      "component": "KidsImageReveal",
+      "text": "It all starts with a tiny egg on a leaf. When it hatches, out comes a hungry little caterpillar!",
+      "durationSec": 6.15,
+      "startSec": 7.2250000000000005,
+      "imageQuery": "caterpillar on leaf"
+    },
+    {
+      "sceneId": "fun-fact",
+      "component": "KidsFunFact",
+      "text": "A caterpillar's only job is to EAT! It munches leaves all day long, growing one hundred times bigger than when it was born!",
+      "durationSec": 8.45,
+      "startSec": 13.775000000000002,
+      "imageQuery": "caterpillar eating leaf"
+    },
+    {
+      "sceneId": "question",
+      "component": "KidsQuestion",
+      "text": "But what happens next? Something completely incredible!",
+      "durationSec": 3.7,
+      "startSec": 22.625,
+      "imageQuery": "chrysalis"
+    },
+    {
+      "sceneId": "timeline",
+      "component": "KidsTimeline",
+      "text": "The caterpillar wraps itself inside a special case called a chrysalis. Inside, it completely transforms! Egg, caterpillar, chrysalis, butterfly — four amazing stages of metamorphosis!",
+      "durationSec": 12.95,
+      "startSec": 26.725,
+      "imageQuery": "green chrysalis"
+    },
+    {
+      "sceneId": "number-stat",
+      "component": "KidsNumberStat",
+      "text": "After a few weeks, a beautiful butterfly emerges, drying its wings in the warm sun!",
+      "durationSec": 5.825,
+      "startSec": 40.075,
+      "imageQuery": "butterfly emerging"
+    },
+    {
+      "sceneId": "ending",
+      "component": "KidsEnding",
+      "text": "It flies off to sip sweet nectar from flowers, and start the whole amazing journey all over again. Isn't nature wonderful?",
+      "durationSec": 8.1,
+      "startSec": 46.300000000000004,
+      "imageQuery": "butterfly flying meadow"
+    },
+    {
+      "sceneId": "end-card",
+      "component": "KidsEndCard",
+      "text": "",
+      "durationSec": 0,
+      "startSec": 54.4,
+      "imageQuery": "butterfly garden"
+    }
+  ]
+}

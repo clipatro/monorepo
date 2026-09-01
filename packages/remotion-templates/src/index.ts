@@ -47,9 +47,24 @@ export {
   type MysteryTitleCardData, type MysteryImageRevealData, type MysteryQuestionData, type MysteryClueData, type MysteryTimelineData, type MysteryQuoteData, type MysteryLocationData, type MysteryStatisticData, type MysteryEndingData,
   MysteryCanvas, MysteryReveal, MysteryImage, MysteryPanel, MysteryLabel, getMysteryTokens, type MysteryTokens, type MysteryImageData,
   mysteryTheme,
+  loadMysteryFonts, PLAYFAIR_DISPLAY, IBM_PLEX_MONO,
   mysteryComponentCapabilities, getMysteryComponentCapability, getMysteryLlmCatalog, recommendMysteryComponents, type MysteryNarrativeRole, type MysteryInformationShape, type MysteryTone, type MysteryMediaMode, type MysteryComponentCapability, type MysterySelectionQuery,
   mysteryRegistry,
 } from "./mystery/index.ts";
+
+// Kids namespace
+export {
+  KidsTitleCard, KidsImageReveal, KidsQuestion, KidsFunFact, KidsNumberStat, KidsTimeline, KidsQuote, KidsTopList, KidsEnding, KidsEndCard,
+  type KidsTitleCardData, type KidsImageRevealData, type KidsQuestionData, type KidsFunFactData, type KidsNumberStatData, type KidsTimelineData, type KidsQuoteData, type KidsTopListData, type KidsEndingData, type KidsEndCardData,
+  KidsCanvas, KidsReveal, KidsImage, KidsCaption, KidsPanel, KidsLabel,
+  KidsSceneCanvas, KidsScrim, KidsSpeechBubble, KidsThoughtBubble, KidsCalloutCard, KidsCaptionStrip, buildScrimBackground,
+  getKidsTokens, type KidsTokens, type KidsImageData,
+  type KidsSceneCanvasProps, type KidsScrimProps, type KidsSpeechBubbleProps, type KidsThoughtBubbleProps, type KidsCalloutCardProps, type KidsCaptionStripProps,
+  kidsTheme,
+  loadKidsFonts, FREDOKA, NUNITO,
+  kidsComponentCapabilities, getKidsComponentCapability, getKidsLlmCatalog, recommendKidsComponents, type KidsNarrativeRole, type KidsInformationShape, type KidsTone, type KidsMediaMode, type KidsComponentCapability, type KidsSelectionQuery,
+  kidsRegistry,
+} from "./kids/index.ts";
 
 // Themes
 export {
