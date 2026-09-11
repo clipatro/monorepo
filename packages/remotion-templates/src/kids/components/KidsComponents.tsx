@@ -34,9 +34,18 @@ import {
   KidsCaptionStrip,
   KidsCalloutCard,
   KidsReveal,
+  KidsSpeechBubble,
   getKidsTokens,
   type KidsImageData,
 } from "../canvas.tsx";
+
+// ─── Safe-area constants for YouTube/TikTok vertical video (720×1280) ───────
+// Platform UI overlays: top (account name, follow button), bottom (captions,
+// like/comment/share buttons, description), sides (minimal). These margins
+// keep speech bubbles, text, and important content away from platform UI.
+const SAFE_AREA_TOP = 80; // px from top — account name + follow button
+const SAFE_AREA_BOTTOM = 220; // px from bottom — TikTok action buttons + captions
+const SAFE_AREA_SIDE = 72; // px from left/right — side UI elements
 
 // ─── 1. KidsTitleCard — big playful opening title (full-bleed) ──────────────
 
@@ -62,12 +71,14 @@ export const KidsTitleCard: React.FC<{ data: KidsTitleCardData; theme?: ThemeCon
   // Gentle title "breathing" — a slow scale pulse so the title feels alive
   const breathe = 1 + Math.sin((frame - delay) * 0.04) * 0.015;
 
-  // Scrim strength adapts: stronger at start for the title reveal, eases slightly
+  // Strong top scrim so the label pill + title text are always readable,
+  // even when a character (e.g. an owl on a branch) is high in the frame.
+  // The scrim fades to transparent by ~45% down, leaving the character visible.
   const scrimTravel = interpolate(frame, [delay, Math.max(delay + 1, durationInFrames)], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const scrimStrength = 0.7 - scrimTravel * 0.1;
+  const scrimStrength = 0.72 - scrimTravel * 0.06;
 
   return (
     <KidsSceneCanvas
@@ -80,26 +91,29 @@ export const KidsTitleCard: React.FC<{ data: KidsTitleCardData; theme?: ThemeCon
       kenBurns="in"
       kenBurnsPan="right"
       zoomIntensity={0.14}
-      scrim="both"
+      scrim="top"
       scrimStrength={scrimStrength}
-      overlay="center"
-      overlayPadding={56}
+      overlay="top"
+      overlayPadding={SAFE_AREA_TOP}
       label={data.label}
       labelPosition="top-center"
       labelColor={t.secondary}
       decorations={true}
-      overlayStyle={{ alignItems: "center", textAlign: "center" }}
+      // Push content below the label pill (~44px tall + 16px gap) so they
+      // never overlap. The label is absolutely positioned at top:overlayPadding-8,
+      // so the content needs paddingTop to clear it.
+      overlayStyle={{ alignItems: "center", textAlign: "center", paddingTop: data.label ? 60 : 0 }}
     >
       {/* Hook — appears first, in the secondary accent color */}
       {data.hook && (
         <div style={{
           opacity: hookProgress,
           transform: `translateY(${(1 - hookProgress) * 20}px) scale(${0.9 + hookProgress * 0.1})`,
-          marginBottom: 28,
+          marginBottom: 18,
         }}>
           <p style={{
             fontFamily: t.display,
-            fontSize: 36,
+            fontSize: 30,
             fontWeight: 600,
             lineHeight: 1.15,
             color: "#ffffff",
@@ -119,7 +133,7 @@ export const KidsTitleCard: React.FC<{ data: KidsTitleCardData; theme?: ThemeCon
       }}>
         <h1 style={{
           fontFamily: t.display,
-          fontSize: 68,
+          fontSize: 54,
           fontWeight: 700,
           lineHeight: 1.05,
           color: "#ffffff",
@@ -133,13 +147,13 @@ export const KidsTitleCard: React.FC<{ data: KidsTitleCardData; theme?: ThemeCon
       {/* Subtitle — appears last, softer */}
       {data.subtitle && (
         <div style={{
-          marginTop: 24,
+          marginTop: 16,
           opacity: subtitleProgress,
           transform: `translateY(${(1 - subtitleProgress) * 16}px)`,
         }}>
           <p style={{
             fontFamily: t.sans,
-            fontSize: 28,
+            fontSize: 24,
             fontWeight: 700,
             lineHeight: 1.35,
             color: "rgba(255,255,255,0.92)",
@@ -154,7 +168,12 @@ export const KidsTitleCard: React.FC<{ data: KidsTitleCardData; theme?: ThemeCon
   );
 };
 
-// ─── 2. KidsImageReveal — full-bleed image with playful caption ─────────────
+// ─── 2. KidsImageReveal — full-bleed image with speech-bubble caption ───────
+//
+// Narration/dialogue appears inside a clean white speech bubble with black
+// text, positioned above the YouTube/TikTok bottom safe area so platform UI
+// (like/comment/share buttons, captions) never covers the bubble. The bubble
+// has a small tail pointing down toward the character in the scene.
 
 export interface KidsImageRevealData extends KidsImageData {
   caption?: string;
@@ -169,6 +188,8 @@ export const KidsImageReveal: React.FC<{ data: KidsImageRevealData; theme?: Them
 
   // Caption springs in slightly after the image reveal begins
   const captionProgress = spring({ frame: frame - delay - 16, fps, config: { damping: 13, stiffness: 115 } });
+  // Label appears just before the caption
+  const labelProgress = spring({ frame: frame - delay - 10, fps, config: { damping: 14, stiffness: 120 } });
 
   return (
     <KidsSceneCanvas
@@ -181,33 +202,64 @@ export const KidsImageReveal: React.FC<{ data: KidsImageRevealData; theme?: Them
       kenBurns="in"
       kenBurnsPan="right"
       zoomIntensity={0.12}
+      // Bottom-only scrim — the top stays completely clear so characters
+      // (owl on a branch, etc.) are never darkened or overlapped by text.
       scrim="bottom"
-      scrimStrength={0.5}
-      overlay="bottom"
-      overlayPadding={48}
-      label={data.label}
+      scrimStrength={0.55}
+      overlay="free"
+      overlayPadding={SAFE_AREA_SIDE}
+      // No label at the top — it overlaps with characters. The label is
+      // rendered inside the bottom overlay instead.
+      label={undefined}
       labelPosition="top-left"
       footer={data.footer}
       decorations={false}
+      overlayStyle={{ top: "auto", bottom: SAFE_AREA_BOTTOM, justifyContent: "flex-end" }}
     >
+      {/* Emotion label pill — now at the bottom, above the speech bubble,
+          so it never overlaps with characters at the top of the image */}
+      {data.label && (
+        <div style={{
+          opacity: labelProgress,
+          transform: `translateY(${(1 - labelProgress) * 12}px)`,
+          marginBottom: 14,
+          display: "flex",
+          justifyContent: "flex-start",
+        }}>
+          <span style={{
+            display: "inline-block",
+            padding: "6px 18px",
+            borderRadius: 999,
+            background: t.secondary,
+            color: "#ffffff",
+            fontFamily: t.display,
+            fontSize: 15,
+            fontWeight: 600,
+            letterSpacing: 1.2,
+            textTransform: "uppercase",
+            boxShadow: t.cardShadow,
+          }}>
+            {data.label}
+          </span>
+        </div>
+      )}
+
       {data.caption && (
         <div style={{
           opacity: captionProgress,
           transform: `translateY(${(1 - captionProgress) * 20}px) scale(${0.92 + captionProgress * 0.08})`,
         }}>
-          <p style={{
-            fontFamily: t.display,
-            fontSize: 36,
-            fontWeight: 600,
-            lineHeight: 1.2,
-            color: "#ffffff",
-            margin: 0,
-            maxWidth: 600,
-            textAlign: "left",
-            textShadow: "0 2px 12px rgba(0,0,0,0.6), 0 1px 4px rgba(0,0,0,0.5)",
-          }}>
-            {data.caption}
-          </p>
+          <KidsSpeechBubble
+            text={data.caption}
+            theme={theme}
+            delay={delay + 16}
+            variant="white"
+            tail="down"
+            tailPosition={0.15}
+            fontSize={30}
+            maxWidth={540}
+            entrance="up"
+          />
         </div>
       )}
     </KidsSceneCanvas>
@@ -826,30 +878,56 @@ export const KidsEnding: React.FC<{ data: KidsEndingData; theme?: ThemeConfig; d
       kenBurns="out"
       kenBurnsPan="right"
       zoomIntensity={0.08}
-      scrim="both"
-      scrimStrength={0.6}
-      overlay="center"
-      overlayPadding={56}
-      label={data.label ?? "REMEMBER!"}
+      // Bottom-only scrim — top stays clear so characters are visible
+      scrim="bottom"
+      scrimStrength={0.65}
+      overlay="bottom"
+      overlayPadding={SAFE_AREA_BOTTOM}
+      // No label at the top — rendered at the bottom instead
+      label={undefined}
       labelPosition="top-center"
       labelColor={t.success}
       decorations={true}
       overlayStyle={{ alignItems: "center", textAlign: "center" }}
     >
+      {/* Label pill — at the bottom, above the message */}
+      {(data.label ?? "REMEMBER!") && (
+        <div style={{
+          marginBottom: 10,
+          opacity: messageProgress,
+        }}>
+          <span style={{
+            display: "inline-block",
+            padding: "6px 18px",
+            borderRadius: 999,
+            background: t.success,
+            color: "#ffffff",
+            fontFamily: t.display,
+            fontSize: 14,
+            fontWeight: 600,
+            letterSpacing: 1.5,
+            textTransform: "uppercase",
+            boxShadow: t.cardShadow,
+          }}>
+            {data.label ?? "REMEMBER!"}
+          </span>
+        </div>
+      )}
+
       <div style={{
         textAlign: "center",
-        maxWidth: 580,
+        maxWidth: 520,
         transform: `translate(${float}px, ${floatY}px)`,
       }}>
-        {/* Message — the hero of this frame, big and warm with layered shadows */}
+        {/* Message — compact so it stays low and doesn't cover the character */}
         <div style={{
           opacity: messageProgress,
-          transform: `translateY(${(1 - messageProgress) * 20}px) scale(${(0.9 + messageProgress * 0.1) * breathe})`,
+          transform: `translateY(${(1 - messageProgress) * 16}px) scale(${(0.9 + messageProgress * 0.1) * breathe})`,
         }}>
           <p style={{
-            fontFamily: t.display, fontSize: 44, fontWeight: 600, lineHeight: 1.15,
+            fontFamily: t.display, fontSize: 28, fontWeight: 600, lineHeight: 1.2,
             color: "#ffffff", margin: 0,
-            textShadow: `0 4px 0 ${t.accentDeep}, 0 6px 20px rgba(0,0,0,0.6), 0 2px 4px rgba(0,0,0,0.5)`,
+            textShadow: `0 3px 0 ${t.accentDeep}, 0 5px 16px rgba(0,0,0,0.6), 0 2px 4px rgba(0,0,0,0.5)`,
           }}>
             {data.message}
           </p>
@@ -858,11 +936,11 @@ export const KidsEnding: React.FC<{ data: KidsEndingData; theme?: ThemeConfig; d
         {/* Encouragement — softer, in the secondary accent, appears after the message settles */}
         {data.encouragement && (
           <div style={{
-            marginTop: 32, opacity: encouragementProgress,
-            transform: `translateY(${(1 - encouragementProgress) * 16}px) scale(${0.92 + encouragementProgress * 0.08})`,
+            marginTop: 14, opacity: encouragementProgress,
+            transform: `translateY(${(1 - encouragementProgress) * 12}px) scale(${0.92 + encouragementProgress * 0.08})`,
           }}>
             <p style={{
-              fontFamily: t.display, fontSize: 32, fontWeight: 500, lineHeight: 1.25,
+              fontFamily: t.display, fontSize: 22, fontWeight: 500, lineHeight: 1.25,
               color: t.secondary, margin: 0,
               textShadow: "0 2px 10px rgba(0,0,0,0.5), 0 1px 3px rgba(0,0,0,0.4)",
             }}>
@@ -871,6 +949,198 @@ export const KidsEnding: React.FC<{ data: KidsEndingData; theme?: ThemeConfig; d
           </div>
         )}
       </div>
+    </KidsSceneCanvas>
+  );
+};
+
+// ─── 11. KidsSubtitleTopScene — full-bleed image, subtitle reserved at TOP ──
+//
+// A full-bleed scene image with the narration/caption displayed in a
+// translucent white speech bubble anchored at the TOP of the frame (below the
+// platform safe area). The image-generation pipeline is instructed to keep
+// characters and important visual elements in the LOWER portion of the frame
+// so the subtitle never overlaps them.
+//
+// Use this component when the scene's composition naturally places the
+// character/subject in the lower part of the frame (e.g. looking up at
+// something, standing in a valley, underground).
+
+export interface KidsSubtitleTopSceneData extends KidsImageData {
+  /** The narration/caption text shown in the speech bubble */
+  caption: string;
+  /** Optional small emotion label pill */
+  label?: string;
+}
+
+export const KidsSubtitleTopScene: React.FC<{ data: KidsSubtitleTopSceneData; theme?: ThemeConfig; delay?: number }> = ({ data, theme, delay = 0 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const t = getKidsTokens(theme);
+
+  const captionProgress = spring({ frame: frame - delay - 16, fps, config: { damping: 13, stiffness: 115 } });
+  const labelProgress = spring({ frame: frame - delay - 10, fps, config: { damping: 14, stiffness: 120 } });
+
+  return (
+    <KidsSceneCanvas
+      theme={theme}
+      delay={delay}
+      imageUrl={data.imageUrl}
+      imageAlt={data.imageAlt}
+      imageFocalPoint={data.imageFocalPoint}
+      imageTreatment={data.imageTreatment ?? "bright"}
+      kenBurns="in"
+      kenBurnsPan="right"
+      zoomIntensity={0.12}
+      // Top scrim so the subtitle bubble is readable over any image
+      scrim="top"
+      scrimStrength={0.6}
+      overlay="top"
+      overlayPadding={SAFE_AREA_TOP}
+      label={undefined}
+      decorations={false}
+      overlayStyle={{ alignItems: "center", textAlign: "center", paddingTop: data.label ? 50 : 20 }}
+    >
+      {/* Emotion label pill — at the top, above the speech bubble */}
+      {data.label && (
+        <div style={{
+          opacity: labelProgress,
+          transform: `translateY(${(1 - labelProgress) * 12}px)`,
+          marginBottom: 14,
+          display: "flex",
+          justifyContent: "center",
+        }}>
+          <span style={{
+            display: "inline-block",
+            padding: "6px 18px",
+            borderRadius: 999,
+            background: t.secondary,
+            color: "#ffffff",
+            fontFamily: t.display,
+            fontSize: 15,
+            fontWeight: 600,
+            letterSpacing: 1.2,
+            textTransform: "uppercase",
+            boxShadow: t.cardShadow,
+          }}>
+            {data.label}
+          </span>
+        </div>
+      )}
+
+      {data.caption && (
+        <div style={{
+          opacity: captionProgress,
+          transform: `translateY(${(1 - captionProgress) * -20}px) scale(${0.92 + captionProgress * 0.08})`,
+        }}>
+          <KidsSpeechBubble
+            text={data.caption}
+            theme={theme}
+            delay={delay + 16}
+            variant="white"
+            tail="down"
+            tailPosition={0.5}
+            fontSize={28}
+            maxWidth={560}
+            entrance="up"
+          />
+        </div>
+      )}
+    </KidsSceneCanvas>
+  );
+};
+
+// ─── 12. KidsSubtitleBottomScene — full-bleed image, subtitle at BOTTOM ─────
+//
+// A full-bleed scene image with the narration/caption displayed in a
+// translucent white speech bubble anchored at the BOTTOM of the frame (above
+// the platform safe area). The image-generation pipeline is instructed to keep
+// characters and important visual elements in the UPPER portion of the frame
+// so the subtitle never overlaps them.
+//
+// Use this component when the scene's composition naturally places the
+// character/subject in the upper part of the frame (e.g. looking down from
+// a hill, flying, tall trees, looking at the ground).
+
+export interface KidsSubtitleBottomSceneData extends KidsImageData {
+  /** The narration/caption text shown in the speech bubble */
+  caption: string;
+  /** Optional small emotion label pill */
+  label?: string;
+}
+
+export const KidsSubtitleBottomScene: React.FC<{ data: KidsSubtitleBottomSceneData; theme?: ThemeConfig; delay?: number }> = ({ data, theme, delay = 0 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const t = getKidsTokens(theme);
+
+  const captionProgress = spring({ frame: frame - delay - 16, fps, config: { damping: 13, stiffness: 115 } });
+  const labelProgress = spring({ frame: frame - delay - 10, fps, config: { damping: 14, stiffness: 120 } });
+
+  return (
+    <KidsSceneCanvas
+      theme={theme}
+      delay={delay}
+      imageUrl={data.imageUrl}
+      imageAlt={data.imageAlt}
+      imageFocalPoint={data.imageFocalPoint}
+      imageTreatment={data.imageTreatment ?? "bright"}
+      kenBurns="in"
+      kenBurnsPan="right"
+      zoomIntensity={0.12}
+      // Bottom scrim so the subtitle bubble is readable over any image
+      scrim="bottom"
+      scrimStrength={0.6}
+      overlay="free"
+      overlayPadding={SAFE_AREA_SIDE}
+      label={undefined}
+      decorations={false}
+      overlayStyle={{ top: "auto", bottom: SAFE_AREA_BOTTOM, justifyContent: "flex-end" }}
+    >
+      {/* Emotion label pill — at the bottom, above the speech bubble */}
+      {data.label && (
+        <div style={{
+          opacity: labelProgress,
+          transform: `translateY(${(1 - labelProgress) * 12}px)`,
+          marginBottom: 14,
+          display: "flex",
+          justifyContent: "flex-start",
+        }}>
+          <span style={{
+            display: "inline-block",
+            padding: "6px 18px",
+            borderRadius: 999,
+            background: t.secondary,
+            color: "#ffffff",
+            fontFamily: t.display,
+            fontSize: 15,
+            fontWeight: 600,
+            letterSpacing: 1.2,
+            textTransform: "uppercase",
+            boxShadow: t.cardShadow,
+          }}>
+            {data.label}
+          </span>
+        </div>
+      )}
+
+      {data.caption && (
+        <div style={{
+          opacity: captionProgress,
+          transform: `translateY(${(1 - captionProgress) * 20}px) scale(${0.92 + captionProgress * 0.08})`,
+        }}>
+          <KidsSpeechBubble
+            text={data.caption}
+            theme={theme}
+            delay={delay + 16}
+            variant="white"
+            tail="down"
+            tailPosition={0.15}
+            fontSize={28}
+            maxWidth={560}
+            entrance="up"
+          />
+        </div>
+      )}
     </KidsSceneCanvas>
   );
 };
@@ -913,27 +1183,29 @@ export const KidsEndCard: React.FC<{ data: KidsEndCardData; theme?: ThemeConfig;
       kenBurns="out"
       kenBurnsPan="right"
       zoomIntensity={0.08}
-      scrim="both"
-      scrimStrength={0.62}
-      overlay="center"
-      overlayPadding={56}
+      // Bottom-only scrim — top stays clear so the character illustration
+      // is fully visible. Text (question + CTA + channel) sits at the bottom.
+      scrim="bottom"
+      scrimStrength={0.65}
+      overlay="bottom"
+      overlayPadding={SAFE_AREA_BOTTOM}
       decorations={true}
       overlayStyle={{ alignItems: "center", textAlign: "center" }}
     >
       <div style={{
         display: "flex", flexDirection: "column", alignItems: "center",
-        justifyContent: "center", textAlign: "center", opacity: fadeProgress,
+        textAlign: "center", opacity: fadeProgress,
       }}>
-        {/* Final hook question — appears first, in white with strong shadow */}
+        {/* Final hook question — compact, sits just above the CTA */}
         {data.finalQuestion && (
           <div style={{
             opacity: questionProgress,
-            transform: `translateY(${(1 - questionProgress) * 16}px) scale(${0.92 + questionProgress * 0.08})`,
-            marginBottom: 36,
+            transform: `translateY(${(1 - questionProgress) * 12}px) scale(${0.92 + questionProgress * 0.08})`,
+            marginBottom: 14,
           }}>
             <p style={{
-              fontFamily: t.display, fontSize: 34, fontWeight: 600, lineHeight: 1.2,
-              color: "#ffffff", margin: 0, maxWidth: 520,
+              fontFamily: t.display, fontSize: 24, fontWeight: 600, lineHeight: 1.2,
+              color: "#ffffff", margin: 0, maxWidth: 460,
               textShadow: "0 3px 12px rgba(0,0,0,0.6), 0 1px 3px rgba(0,0,0,0.5)",
             }}>
               {data.finalQuestion}
@@ -941,18 +1213,18 @@ export const KidsEndCard: React.FC<{ data: KidsEndCardData; theme?: ThemeConfig;
           </div>
         )}
 
-        {/* CTA button — big, playful, glowing, pulsing. The visual finish of the video. */}
+        {/* CTA button — compact, playful, glowing, pulsing */}
         <div style={{ opacity: ctaProgress, transform: `scale(${ctaProgress * pulse})` }}>
           <div style={{
             display: "inline-block",
-            padding: "18px 40px",
+            padding: "12px 28px",
             borderRadius: 999,
             background: t.secondary,
             color: "#ffffff",
             fontFamily: t.display,
-            fontSize: 30,
+            fontSize: 24,
             fontWeight: 700,
-            border: "4px solid #ffffff",
+            border: "3px solid #ffffff",
             boxShadow: `0 6px 20px rgba(0,0,0,0.3), 0 0 ${24 * glowPulse}px ${t.secondary}cc`,
           }}>
             {data.cta ?? "Subscribe for more fun!"}
@@ -962,11 +1234,11 @@ export const KidsEndCard: React.FC<{ data: KidsEndCardData; theme?: ThemeConfig;
         {/* Channel name — appears last, in softer white */}
         {data.channelName && (
           <div style={{
-            marginTop: 20, opacity: channelProgress,
-            transform: `translateY(${(1 - channelProgress) * 10}px)`,
+            marginTop: 12, opacity: channelProgress,
+            transform: `translateY(${(1 - channelProgress) * 8}px)`,
           }}>
             <p style={{
-              fontFamily: t.sans, fontSize: 22, fontWeight: 700,
+              fontFamily: t.sans, fontSize: 18, fontWeight: 700,
               color: "rgba(255,255,255,0.9)", margin: 0,
               textShadow: "0 2px 8px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.4)",
             }}>

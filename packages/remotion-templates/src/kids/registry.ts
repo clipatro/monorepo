@@ -16,6 +16,8 @@ import {
   KidsTopList,
   KidsEnding,
   KidsEndCard,
+  KidsSubtitleTopScene,
+  KidsSubtitleBottomScene,
   type KidsTitleCardData,
   type KidsImageRevealData,
   type KidsQuestionData,
@@ -25,6 +27,8 @@ import {
   type KidsQuoteData,
   type KidsTopListData,
   type KidsEndingData,
+  type KidsSubtitleTopSceneData,
+  type KidsSubtitleBottomSceneData,
 } from "./components/KidsComponents.tsx";
 
 const sampleImage = "https://images.unsplash.com/photo-1547036967-23d11aacaee0";
@@ -142,4 +146,6 @@ export const kidsRegistry: TemplateDefinition[] = [
   entry("kids-top-list", "Kids Top List", "A ranked top-N list with bouncy pop-in and colorful rank badges", "Facts & Data", KidsTopList, topListData, 165),
   entry("kids-ending", "Kids Ending", "A warm, positive closing message with encouragement", "Narrative", KidsEnding, endingData, 135),
   entry("kids-end-card", "Kids End Card", "A big playful subscribe button with channel name", "Intro & Outro", KidsEndCard, {}, 90),
+  entry("kids-subtitle-top-scene", "Kids Subtitle Top Scene", "Full-bleed scene with subtitle reserved at top — characters kept low", "Image & Media", KidsSubtitleTopScene, { caption: "And so the adventure begins!", label: "EXCITED", imageUrl: sampleImage } as KidsSubtitleTopSceneData, 150),
+  entry("kids-subtitle-bottom-scene", "Kids Subtitle Bottom Scene", "Full-bleed scene with subtitle reserved at bottom — characters kept high", "Image & Media", KidsSubtitleBottomScene, { caption: "What will happen next?", label: "CURIOUS", imageUrl: sampleImage } as KidsSubtitleBottomSceneData, 150),
 ];

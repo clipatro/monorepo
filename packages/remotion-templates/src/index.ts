@@ -54,15 +54,15 @@ export {
 
 // Kids namespace
 export {
-  KidsTitleCard, KidsImageReveal, KidsQuestion, KidsFunFact, KidsNumberStat, KidsTimeline, KidsQuote, KidsTopList, KidsEnding, KidsEndCard,
-  type KidsTitleCardData, type KidsImageRevealData, type KidsQuestionData, type KidsFunFactData, type KidsNumberStatData, type KidsTimelineData, type KidsQuoteData, type KidsTopListData, type KidsEndingData, type KidsEndCardData,
+  KidsTitleCard, KidsImageReveal, KidsQuestion, KidsFunFact, KidsNumberStat, KidsTimeline, KidsQuote, KidsTopList, KidsEnding, KidsEndCard, KidsSubtitleTopScene, KidsSubtitleBottomScene,
+  type KidsTitleCardData, type KidsImageRevealData, type KidsQuestionData, type KidsFunFactData, type KidsNumberStatData, type KidsTimelineData, type KidsQuoteData, type KidsTopListData, type KidsEndingData, type KidsEndCardData, type KidsSubtitleTopSceneData, type KidsSubtitleBottomSceneData,
   KidsCanvas, KidsReveal, KidsImage, KidsCaption, KidsPanel, KidsLabel,
   KidsSceneCanvas, KidsScrim, KidsSpeechBubble, KidsThoughtBubble, KidsCalloutCard, KidsCaptionStrip, buildScrimBackground,
   getKidsTokens, type KidsTokens, type KidsImageData,
   type KidsSceneCanvasProps, type KidsScrimProps, type KidsSpeechBubbleProps, type KidsThoughtBubbleProps, type KidsCalloutCardProps, type KidsCaptionStripProps,
   kidsTheme,
   loadKidsFonts, FREDOKA, NUNITO,
-  kidsComponentCapabilities, getKidsComponentCapability, getKidsLlmCatalog, recommendKidsComponents, type KidsNarrativeRole, type KidsInformationShape, type KidsTone, type KidsMediaMode, type KidsComponentCapability, type KidsSelectionQuery,
+  kidsComponentCapabilities, getKidsComponentCapability, getKidsLlmCatalog, recommendKidsComponents, textPlacementToImageInstructions, textPlacementToNegativeHint, type KidsNarrativeRole, type KidsInformationShape, type KidsTone, type KidsMediaMode, type KidsTextZone, type KidsTextPlacement, type KidsComponentCapability, type KidsSelectionQuery,
   kidsRegistry,
 } from "./kids/index.ts";
 

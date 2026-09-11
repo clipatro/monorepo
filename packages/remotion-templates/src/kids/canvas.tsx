@@ -1147,9 +1147,12 @@ export const KidsSpeechBubble: React.FC<KidsSpeechBubbleProps> = ({
   const t = getKidsTokens(theme);
 
   // Variant → body / text / outline colors
+  // The "white" variant is a TRANSLUCENT white bubble with black text so it
+  // feels integrated into the scene rather than looking like a solid subtitle
+  // box. The scene shows through clearly behind the dialogue.
   const palette: Record<SpeechBubbleVariant, { body: string; text: string; outline: string }> = {
     accent: { body: t.accent, text: t.bright, outline: t.accentDeep },
-    white: { body: "#ffffff", text: t.bright, outline: t.secondary },
+    white: { body: "rgba(255,255,255,0.55)", text: "#1a1a2e", outline: "rgba(26,26,46,0.10)" },
     coral: { body: t.secondary, text: "#ffffff", outline: "#e85a5a" },
     mint: { body: t.tertiary, text: "#ffffff", outline: "#3bb8af" },
     sunshine: { body: t.warning, text: "#ffffff", outline: t.accentDeep },
@@ -1174,6 +1177,9 @@ export const KidsSpeechBubble: React.FC<KidsSpeechBubbleProps> = ({
   // Tail geometry — a small triangle pointing toward the speaker
   const tailSize = 22;
   const tailPos = Math.max(0.08, Math.min(0.92, tailPosition));
+  // Tail border thickness adapts to variant — white uses a thinner, softer
+  // border to match its elegant outline.
+  const tailBorderWidth = variant === "white" ? "1.5px" : "4px";
   // Tail is rendered as an absolutely-positioned rotated square (a "fold")
   // for a cartoon look. Position depends on direction.
   const tailStyle: React.CSSProperties =
@@ -1181,25 +1187,25 @@ export const KidsSpeechBubble: React.FC<KidsSpeechBubbleProps> = ({
       ? {
           left: -tailSize / 2 + 2,
           top: `calc(${tailPos * 100}% - ${tailSize / 2}px)`,
-          background: colors.body,
-          borderBottom: `4px solid ${colors.outline}`,
-          borderLeft: `4px solid ${colors.outline}`,
+          background: variant === "white" ? "rgba(255,255,255,0.55)" : colors.body,
+          borderBottom: `${tailBorderWidth} solid ${colors.outline}`,
+          borderLeft: `${tailBorderWidth} solid ${colors.outline}`,
         }
       : tail === "right"
       ? {
           right: -tailSize / 2 + 2,
           top: `calc(${tailPos * 100}% - ${tailSize / 2}px)`,
-          background: colors.body,
-          borderBottom: `4px solid ${colors.outline}`,
-          borderRight: `4px solid ${colors.outline}`,
+          background: variant === "white" ? "rgba(255,255,255,0.55)" : colors.body,
+          borderBottom: `${tailBorderWidth} solid ${colors.outline}`,
+          borderRight: `${tailBorderWidth} solid ${colors.outline}`,
         }
       : tail === "down"
       ? {
           bottom: -tailSize / 2 + 2,
           left: `calc(${tailPos * 100}% - ${tailSize / 2}px)`,
-          background: colors.body,
-          borderBottom: `4px solid ${colors.outline}`,
-          borderLeft: `4px solid ${colors.outline}`,
+          background: variant === "white" ? "rgba(255,255,255,0.55)" : colors.body,
+          borderBottom: `${tailBorderWidth} solid ${colors.outline}`,
+          borderLeft: `${tailBorderWidth} solid ${colors.outline}`,
         }
       : {};
 
@@ -1311,21 +1317,31 @@ export const KidsSpeechBubble: React.FC<KidsSpeechBubbleProps> = ({
         </div>
       )}
 
-      {/* Bubble body */}
+      {/* Bubble body — translucent white with black text, soft shadow, generous
+          radius, refined type. The scene shows through behind the dialogue so
+          the bubble feels integrated into the scene rather than a solid box. */}
       <div
         style={{
           position: "relative",
-          background: colors.body,
+          background: variant === "white"
+            ? "rgba(255,255,255,0.55)"
+            : colors.body,
+          backdropFilter: variant === "white" ? "blur(8px)" : undefined,
           color: colors.text,
-          borderRadius: 28,
-          padding: "18px 26px",
+          borderRadius: 32,
+          padding: "20px 30px",
           fontFamily: t.display,
           fontSize,
           fontWeight: 600,
-          lineHeight: 1.25,
+          lineHeight: 1.3,
+          letterSpacing: 0.2,
           maxWidth,
-          border: `4px solid ${colors.outline}`,
-          boxShadow: "0 6px 20px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.12)",
+          border: variant === "white"
+            ? `1.5px solid ${colors.outline}`
+            : `4px solid ${colors.outline}`,
+          boxShadow: variant === "white"
+            ? "0 8px 28px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6)"
+            : "0 6px 20px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.12)",
         }}
       >
         {text}
@@ -1750,6 +1766,8 @@ export const KidsCalloutCard: React.FC<KidsCalloutCardProps> = ({
   const t = getKidsTokens(theme);
 
   // Variant → card / text / header / outline colors
+  // The "white" variant uses a TRANSLUCENT white card with black text so it
+  // integrates into the scene rather than reading as a solid subtitle box.
   const palette: Record<CalloutCardVariant, {
     card: string;
     text: string;
@@ -1758,7 +1776,7 @@ export const KidsCalloutCard: React.FC<KidsCalloutCardProps> = ({
     outline: string;
   }> = {
     accent: { card: "#ffffff", text: t.bright, header: t.accent, headerText: t.bright, outline: t.accentDeep },
-    white: { card: "#ffffff", text: t.bright, header: t.tertiary, headerText: "#ffffff", outline: t.tertiary },
+    white: { card: "rgba(255,255,255,0.55)", text: "#1a1a2e", header: t.tertiary, headerText: "#ffffff", outline: t.tertiary },
     coral: { card: "#ffffff", text: t.bright, header: t.secondary, headerText: "#ffffff", outline: "#e85a5a" },
     mint: { card: "#ffffff", text: t.bright, header: t.tertiary, headerText: "#ffffff", outline: "#3bb8af" },
     sunshine: { card: "#ffffff", text: t.bright, header: t.warning, headerText: "#ffffff", outline: t.accentDeep },
@@ -1865,6 +1883,7 @@ export const KidsCalloutCard: React.FC<KidsCalloutCardProps> = ({
       <div
         style={{
           background: colors.card,
+          backdropFilter: variant === "white" ? "blur(8px)" : undefined,
           color: colors.text,
           borderRadius: 24,
           overflow: "hidden",
@@ -2049,7 +2068,7 @@ export const KidsCaptionStrip: React.FC<KidsCaptionStripProps> = ({
   // regardless of the theme's text.bright color (which may be light for dark themes).
   const palette: Record<CaptionStripVariant, { bg: string; text: string; accent: string }> = {
     accent: { bg: `rgba(255,217,61,0.95)`, text: "#1a1a2e", accent: t.accentDeep },
-    white: { bg: `rgba(255,255,255,0.95)`, text: "#1a1a2e", accent: t.secondary },
+    white: { bg: `rgba(255,255,255,0.55)`, text: "#1a1a2e", accent: t.secondary },
     coral: { bg: `rgba(255,107,107,0.95)`, text: "#ffffff", accent: "#e85a5a" },
     mint: { bg: `rgba(78,205,196,0.95)`, text: "#ffffff", accent: "#3bb8af" },
     sunshine: { bg: `rgba(255,159,67,0.95)`, text: "#ffffff", accent: t.accentDeep },

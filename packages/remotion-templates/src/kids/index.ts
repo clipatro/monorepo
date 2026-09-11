@@ -21,6 +21,8 @@ export {
   KidsTopList,
   KidsEnding,
   KidsEndCard,
+  KidsSubtitleTopScene,
+  KidsSubtitleBottomScene,
   type KidsTitleCardData,
   type KidsImageRevealData,
   type KidsQuestionData,
@@ -31,6 +33,8 @@ export {
   type KidsTopListData,
   type KidsEndingData,
   type KidsEndCardData,
+  type KidsSubtitleTopSceneData,
+  type KidsSubtitleBottomSceneData,
 } from "./components/KidsComponents.tsx";
 
 // Canvas + primitives
@@ -71,10 +75,14 @@ export {
   getKidsComponentCapability,
   getKidsLlmCatalog,
   recommendKidsComponents,
+  textPlacementToImageInstructions,
+  textPlacementToNegativeHint,
   type KidsNarrativeRole,
   type KidsInformationShape,
   type KidsTone,
   type KidsMediaMode,
+  type KidsTextZone,
+  type KidsTextPlacement,
   type KidsComponentCapability,
   type KidsCatalogComponent,
   type KidsSelectionQuery,

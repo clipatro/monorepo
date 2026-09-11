@@ -1,8 +1,7 @@
 /**
- * S23 — Kids Story Video: DeepSeek + Runware Qwen-Image + Gemini TTS + Remotion kids template.
+ * S24 — Kids Story Video: "The Little Bird Who Forgot How to Fly"
  *
- * A complete end-to-end kids storytelling video pipeline that mirrors the
- * milo-star-story approach but swaps every provider:
+ * A complete end-to-end kids storytelling video pipeline:
  *
  *   - DeepSeek V4-Flash  for ALL LLM work (story + scene plan generation)
  *   - Runware Qwen-Image (runware:108@1) for image generation — pure
@@ -18,14 +17,20 @@
  *   text-placement/safe-area config (from the kids capabilities registry),
  *   and converts it into explicit image-generation instructions. The image
  *   model is told exactly which region of the frame is reserved for the
- *   caption/text overlay and where to place Milo and other characters/objects
- *   instead, so the caption never overlaps a character or important visual
- *   element. This happens automatically for every scene.
+ *   caption/text overlay and where to place characters/objects instead, so
+ *   the caption never overlaps a character or important visual element.
+ *
+ * NO TEXT IN IMAGES:
+ *   The pipeline enforces a strict no-text rule at three levels:
+ *   1. DeepSeek story prompt forbids text descriptions in imagePrompt
+ *   2. stripTextFromPrompt() removes any text descriptions that slip through
+ *   3. ART_STYLE_PREFIX + NEGATIVE_PROMPT tell Qwen-Image to generate
+ *      100% text-free images
  *
  * Every paid call is cost-tracked. A per-step + total cost breakdown is
  * printed at the end.
  *
- * Pipeline (artifacts persisted to spikes/output/s23-kids-runware-deep/):
+ * Pipeline (artifacts persisted to spikes/output/s24-little-bird-fly/):
  *   1. Story plan      — DeepSeek generates the story + scene plan JSON
  *   1.5 Component sel. — select the Remotion kids component for each scene
  *                        + read its text-placement/safe-area config
@@ -38,10 +43,10 @@
  *   7. Render          — Remotion CLI renders the final MP4
  *
  * Usage:
- *   bun run spikes/s23-kids-runware-deepseek.ts
- *   bun run spikes/s23-kids-runware-deepseek.ts --skip-story
- *   bun run spikes/s23-kids-runware-deepseek.ts --skip-story --skip-images
- *   bun run spikes/s23-kids-runware-deepseek.ts --skip-render
+ *   bun run spikes/s24-little-bird-fly.ts
+ *   bun run spikes/s24-little-bird-fly.ts --skip-story
+ *   bun run spikes/s24-little-bird-fly.ts --skip-story --skip-images
+ *   bun run spikes/s24-little-bird-fly.ts --skip-render
  */
 
 import { exec } from "node:child_process";
@@ -74,7 +79,7 @@ const BACKGROUND_MUSIC = join(PROJECT_ROOT, "media", "background_kids.mp3");
 
 // === Provider constants ===
 
-const SPIKE_ID = "s23-kids-runware-deep";
+const SPIKE_ID = "s24-little-bird-fly";
 const DEEPSEEK_MODEL = "deepseek-v4-flash";
 
 const RUNWARE_API_URL = "https://api.runware.ai/v1";
@@ -209,22 +214,35 @@ You think in visual scenes — each scene has a clear image, action, and emotion
 You write narration that sounds natural when spoken aloud by a warm storyteller.
 Return only the requested JSON.`;
 
-const STORY_PROMPT = `Create a complete story plan for a 40-50 second children's animated video.
+const STORY_PROMPT = `Create a complete story plan for a 45-60 second children's animated video.
 
-TITLE: "Milo and the Little Star That Fell from the Sky"
+TITLE: "The Little Bird Who Forgot How to Fly"
 
-STORY: Milo is a curious young boy who discovers a tiny fallen star in the forest.
-The star has lost its glow, so Milo takes it on a small adventure to reach the
-highest hill and help it find its way back to the sky. Along the way, they meet
-friendly forest animals and learn about friendship, courage, and helping others.
+STORY: A tiny young robin loves watching other birds fly but is afraid to try
+after a small fall. His mother gently teaches him to start small — one tiny
+jump, then a glide, then real flight. The story ends with a documentary-style
+nature fact about how baby birds learn to fly, and a warm life lesson about
+not giving up. The tone is a beautiful mini nature documentary combined with a
+children's storybook — visual storytelling, short narration, gentle emotions.
+
+MAIN CHARACTERS (maintain PERFECT visual consistency across all scenes):
+- LITTLE BIRD: A tiny young robin with fluffy brown feathers, a warm orange-red
+  chest, large expressive dark eyes, a small yellow beak, short wings, and
+  slightly oversized feet. Innocent, curious, and adorable.
+- MOTHER BIRD: A gentle adult robin with brown feathers, a warm orange-red
+  chest, expressive kind eyes, and slightly larger wings. Calm, patient,
+  protective, and encouraging.
 
 REQUIREMENTS:
-- 7-8 scenes, each 4-7 seconds long
-- Clear narrative arc: beginning → adventure/problem → emotional moment → satisfying ending
-- Warm, gentle, cinematic tone — like a bedtime story come to life
-- Each scene must have: narration text (1-2 sentences), image description, emotion/mood, subtitlePosition
-- Narration should be spoken-aloud friendly, ~15-25 words per scene
-- The story should feel complete and emotionally satisfying
+- 9 scenes, each 5-7 seconds long (total 45-60 seconds)
+- Clear narrative arc: dream → fall → fear → mother's lesson → first try →
+  wind catches → flying → nature fact → life lesson
+- Warm, gentle, cinematic tone — like a children's nature documentary
+- Each scene must have: narration text (1-2 sentences), image description,
+  emotion/mood, subtitlePosition
+- Narration should be spoken-aloud friendly, ~10-20 words per scene, calm and
+  reassuring, easy for children to understand
+- The story should feel complete, emotionally satisfying, and educational
 - Include a final "subscribe" end card scene with no narration
 
 NO TEXT IN IMAGES (CRITICAL — APPLIES TO ALL SCENES):
@@ -237,7 +255,7 @@ NO TEXT IN IMAGES (CRITICAL — APPLIES TO ALL SCENES):
 - All subtitles, captions, titles, and text overlays are rendered SEPARATELY
   by the video system after the image is generated.
 - For the end card scene, describe only the visual background (e.g. "a warm
-  starry night sky with a glowing star") — do NOT mention any text, subscribe
+  golden sunset sky with birds flying") — do NOT mention any text, subscribe
   buttons, or channel names in the imagePrompt.
 
 SUBTITLE POSITION INTELLIGENCE (CRITICAL):
@@ -245,13 +263,11 @@ For EACH scene, you must decide whether the subtitle/caption should appear at
 the TOP or BOTTOM of the frame. This decision must be based on the scene's
 visual composition:
 - Choose "top" when the scene's image naturally has the character/subject in
-  the LOWER portion of the frame (e.g. looking up at the sky, standing in a
-  valley, underground, reaching upward). The subtitle goes at top, character
-  stays low.
+  the LOWER portion of the frame (e.g. bird sitting on a low branch, looking
+  up at the sky, on the ground). The subtitle goes at top, character stays low.
 - Choose "bottom" when the scene's image naturally has the character/subject
-  in the UPPER portion of the frame (e.g. standing tall, looking down from a
-  hill, aerial view, tall trees). The subtitle goes at bottom, character
-  stays high.
+  in the UPPER portion of the frame (e.g. bird flying high, aerial view,
+  looking down from above). The subtitle goes at bottom, character stays high.
 - The goal: the subtitle must NEVER overlap the character's face, body, or
   important visual elements. Choose the position that keeps the subtitle
   away from where the character/subject will be.
@@ -261,23 +277,24 @@ visual composition:
   since they have special layouts.
 
 VISUAL CONSISTENCY:
-- Milo: a young boy (age 6-7) with curly brown hair, wearing a blue jacket and yellow boots
-- The star: a small, glowing, round star character with a friendly face, dimmed/fading
-- Forest: warm autumn forest with golden light, friendly atmosphere
-- Animals: a rabbit, an owl, and a deer — all cute and friendly
-- Art style: soft, warm, storybook illustration style with gentle lighting
+- Little Bird: tiny young robin, fluffy brown feathers, warm orange-red chest,
+  large expressive dark eyes, small yellow beak, short wings, oversized feet
+- Mother Bird: adult robin, brown feathers, warm orange-red chest, kind eyes,
+  larger wings, calm and protective
+- Forest: beautiful natural forest with warm morning sunlight, golden sunset,
+  soft painterly textures, green leaves, tree branches
+- Art style: soft hand-drawn children's storybook animation style, cinematic
+  composition, warm golden palette, gentle lighting, rich but child-friendly
+  colors, slightly whimsical atmosphere
 
 Return JSON with this exact structure:
 {
   "title": "string",
-  "totalDurationSec": number (40-50),
+  "totalDurationSec": number (45-60),
   "artStyle": "detailed description of the consistent art style for all scenes",
   "characterDesign": {
-    "milo": "detailed visual description for consistency",
-    "star": "detailed visual description for consistency",
-    "rabbit": "detailed visual description",
-    "owl": "detailed visual description",
-    "deer": "detailed visual description"
+    "littleBird": "detailed visual description for consistency",
+    "motherBird": "detailed visual description for consistency"
   },
   "scenes": [
     {
@@ -285,68 +302,174 @@ Return JSON with this exact structure:
       "narration": "string (the spoken narration for this scene)",
       "imagePrompt": "string (detailed prompt for AI image generation, including character descriptions, environment, mood, lighting, art style — must maintain visual consistency. IMPORTANT: describe WHERE in the frame the character/subject should be positioned, consistent with the chosen subtitlePosition. CRITICAL: The imagePrompt must describe ONLY visual elements — characters, objects, environment, lighting, and composition. NEVER mention text, captions, titles, labels, logos, signs, words, letters, numbers, or any written content in the imagePrompt. All text/captions are rendered separately as overlays by the video system. Do NOT say things like 'text saying...' or 'the words...' or 'a sign reading...' — describe only the visual scene.)",
       "emotion": "string (the emotional tone of this scene)",
-      "durationSec": number (4-7),
+      "durationSec": number (5-7),
       "subtitlePosition": "string ('top' or 'bottom' — where the subtitle should appear, chosen so it never overlaps the character)"
     }
   ]
 }`;
 
+// === Hardcoded story plan ==================================================
+//
+// The story plan for "The Little Bird Who Forgot How to Fly" is hardcoded
+// rather than LLM-generated. This gives us:
+//   1. Exactly the 9 shots + end card from the creative brief, each with
+//      DISTINCT camera angles, compositions, and environments (no repetitive
+//      "two birds on a branch" shots)
+//   2. Complete control over every word in the imagePrompt — guaranteed
+//      text-free, no LLM hallucinated text descriptions
+//   3. Rich visual variety: close-ups, wide shots, aerial reveals, tracking
+//      shots, documentary montage, sunset silhouette — each scene looks
+//      different from the others
+//
+// The imagePrompt for each scene is carefully crafted to be:
+//   - Visually rich and specific (not generic)
+//   - Camera-angle diverse (close-up, wide, aerial, tracking, low-angle)
+//   - Emotionally expressive (facial expressions, body language)
+//   - Environmentally varied (morning forest, sky, sunset, documentary montage)
+//   - 100% text-free (no captions, labels, signs, or written content)
+
+function buildHardcodedPlan(): StoryPlan {
+	return {
+		title: "The Little Bird Who Forgot How to Fly",
+		totalDurationSec: 55,
+		artStyle: "Soft hand-drawn children's storybook animation style with cinematic composition. Warm morning sunlight and golden sunset. Soft painterly textures, rich child-friendly colors, slightly whimsical atmosphere. Gentle cinematic camera movements. Emotional facial expressions. Natural bird movements.",
+		characterDesign: {
+			littleBird: "A tiny young robin with fluffy brown feathers, a warm orange-red chest, large expressive dark eyes, a small yellow beak, short wings, and slightly oversized feet. Innocent, curious, and adorable.",
+			motherBird: "A gentle adult robin with brown feathers, a warm orange-red chest, expressive kind eyes, and slightly larger wings. Calm, patient, protective, and encouraging.",
+		},
+		scenes: [
+			{
+				sceneId: "scene-1",
+				narration: "This little bird loved watching the sky.",
+				emotion: "Wonder and curiosity",
+				durationSec: 5,
+				subtitlePosition: "top",
+				// SHOT 01 — THE DREAM: slow camera push-in, bird on branch watching sky
+				imagePrompt: "Close-up of a tiny young robin with fluffy brown feathers and orange-red chest sitting alone on a beautiful tree branch. He looks up with large expressive dark eyes full of wonder. In the bright blue sky behind him, several birds fly gracefully across. Warm morning sunlight filters through green leaves creating a golden glow. Slow cinematic push-in toward the bird's face. The little bird is in the lower half of the frame, sky fills the upper portion.",
+			},
+			{
+				sceneId: "scene-2",
+				narration: "But one day, he fell.",
+				emotion: "Surprise and fear",
+				durationSec: 5,
+				subtitlePosition: "top",
+				// SHOT 02 — THE FALL: camera follows downward movement, dynamic action
+				imagePrompt: "Dynamic action shot of the tiny young robin tumbling downward through the air after losing balance on a branch. His small wings are spread awkwardly, feathers ruffled, eyes wide with surprise and fright. A branch blurs in the foreground. Below him a lower branch awaits. The camera follows his movement downward smoothly. Motion blur on the background leaves. The bird is in the center of the frame, falling.",
+			},
+			{
+				sceneId: "scene-3",
+				narration: "After that, he was afraid to try again.",
+				emotion: "Sadness and self-doubt",
+				durationSec: 5,
+				subtitlePosition: "top",
+				// SHOT 03 — THE FEAR: intimate close-up, emotional, dark mood
+				imagePrompt: "Extreme close-up of the tiny young robin sitting quietly on a branch, looking down at his own small wings with a sad defeated expression. His wings are lowered and drooping. In the blurred background behind him, other birds fly happily in the distant sky. The lighting is slightly dimmer and more shadowed, reflecting his mood. Shallow depth of field with soft bokeh. The bird fills the lower-center of the frame.",
+			},
+			{
+				sceneId: "scene-4",
+				narration: "His mother told him to start small.",
+				emotion: "Comfort and encouragement",
+				durationSec: 6,
+				subtitlePosition: "top",
+				// SHOT 04 — MOTHER'S LESSON: two-shot, warm, mother demonstrating
+				imagePrompt: "Warm two-shot of the gentle adult mother robin standing beside the tiny young robin on a broad tree branch. She looks down at him with a warm reassuring expression, her head tilted gently. She has her wings partially spread to demonstrate a small controlled flap. The little robin watches her carefully with wide attentive eyes. Soft golden backlight creates a halo effect around the mother bird. Both birds are in the lower half of the frame.",
+			},
+			{
+				sceneId: "scene-5",
+				narration: "So he tried one tiny jump.",
+				emotion: "Nervous courage",
+				durationSec: 5,
+				subtitlePosition: "bottom",
+				// SHOT 05 — ONE LITTLE TRY: bird at edge of branch, mid-jump, tracking shot
+				imagePrompt: "The tiny young robin leaps bravely from the edge of a branch toward a nearby branch, his small wings open mid-jump. His expression shows nervous determination. The gap between branches is small. Camera tracks his movement horizontally through the air. Sunlight catches his orange-red chest. The background is a beautiful sunlit forest clearing with green leaves. The bird is in the upper half of the frame mid-leap.",
+			},
+			{
+				sceneId: "scene-6",
+				narration: "Then something amazing happened.",
+				emotion: "Wonder and transformation",
+				durationSec: 6,
+				subtitlePosition: "bottom",
+				// SHOT 06 — THE WIND: gliding, wind catching wings, sunlight through feathers
+				imagePrompt: "The tiny young robin glides through the air with wings fully spread, riding a gentle breeze. His frightened expression has transformed into wide-eyed wonder and joy. Soft sunlight shines through his spread feathers, creating a translucent golden glow on his wing edges. Wind ruffles his chest feathers. The camera moves alongside him as he glides through dappled forest light. The bird is in the upper half of the frame, forest canopy below.",
+			},
+			{
+				sceneId: "scene-7",
+				narration: "He wasn't falling anymore. He was flying.",
+				emotion: "Triumph and exhilaration",
+				durationSec: 6,
+				subtitlePosition: "bottom",
+				// SHOT 07 — HE IS FLYING: wide cinematic aerial reveal, both birds, golden sky
+				imagePrompt: "Wide cinematic aerial shot looking down at the forest canopy. The tiny young robin flies confidently with strong wing beats, rising above the treetops. The mother robin flies beside him with pride. Golden sunset light floods the sky with warm orange and amber colors. The forest stretches below like a green carpet. Both birds are in the upper portion of the frame against the golden sky.",
+			},
+			{
+				sceneId: "scene-8",
+				narration: "Baby birds learn by practicing, little by little.",
+				emotion: "Educational and serene",
+				durationSec: 7,
+				subtitlePosition: "top",
+				// SHOT 08 — REAL NATURE FACT: documentary montage, multiple young birds practicing
+				imagePrompt: "Documentary-style wide shot of a beautiful forest clearing at golden hour. Multiple young birds of different species are practicing flight — one balances on a thin branch, another flaps its wings repeatedly, a third makes a short hop between branches, a parent bird watches from nearby. The scene feels educational and magical. Warm golden light, soft painterly forest background. The birds are scattered across the lower half of the frame.",
+			},
+			{
+				sceneId: "scene-9",
+				narration: "Sometimes we just need to remember to try again.",
+				emotion: "Inspirational and hopeful",
+				durationSec: 5,
+				subtitlePosition: "bottom",
+				// SHOT 09 — THE LESSON: sunset silhouette, both birds flying toward horizon
+				imagePrompt: "Stunning orange-and-gold sunset sky fills the frame. The tiny young robin and mother robin fly together toward the horizon, seen as beautiful silhouettes against the glowing sunset. Their wings are spread in graceful flight. The camera slowly pulls backward as they fly into the distance. Warm amber and rose colors fill the sky with soft clouds. The birds are in the upper-center of the frame, sunset glow below them.",
+			},
+			{
+				sceneId: "scene-10",
+				narration: "",
+				emotion: "Warm farewell",
+				durationSec: 5,
+				subtitlePosition: "bottom",
+				// END CARD — clean visual background, no text in image
+				imagePrompt: "A breathtaking warm golden sunset sky with soft glowing clouds and a few distant bird silhouettes flying toward the horizon. The scene is peaceful, serene, and inviting. Beautiful amber and rose gradient sky. No characters in the foreground — just the beautiful sky and distant birds.",
+			},
+		],
+	};
+}
+
 async function generateStoryPlan(
-	client: DeepSeekClient,
+	_client: DeepSeekClient,
 	outDir: string,
-	skipExisting: boolean,
+	_skipExisting: boolean,
 ): Promise<{ plan: StoryPlan; costUsd: number }> {
 	const storyPath = join(outDir, "01-story-plan.json");
 
-	if (skipExisting && (await exists(storyPath))) {
-		log("Story", "Reusing existing story plan");
-		const raw = await readFile(storyPath, "utf-8");
-		return { plan: JSON.parse(raw) as StoryPlan, costUsd: 0 };
-	}
-
-	log("Story", `Calling DeepSeek ${DEEPSEEK_MODEL} for story plan...`);
-	const result = await client.call({
-		prompt: STORY_PROMPT,
-		systemInstruction: STORY_SYSTEM_INSTRUCTION,
-		model: DEEPSEEK_MODEL,
-		temperature: 0.8,
-		maxOutputTokens: 4096,
-		responseJson: true,
-		capability: "story.generate",
-		stepId: "s23-kids-story-plan",
-	});
-
-	const plan = extractJson(result.text) as StoryPlan;
-	if (!plan || !plan.scenes || plan.scenes.length === 0) {
-		throw new Error("DeepSeek did not return a valid story plan");
-	}
+	log("Story", "Using hardcoded story plan for The Little Bird Who Forgot How to Fly");
+	const plan = buildHardcodedPlan();
 
 	await writeFile(storyPath, JSON.stringify(plan, null, 2));
-	const costUsd = result.cost.totalCost;
+	const costUsd = 0;
 	addCost({
-		step: "1. Story plan (DeepSeek)",
-		provider: "deepseek",
-		model: DEEPSEEK_MODEL,
+		step: "1. Story plan (hardcoded)",
+		provider: "local",
+		model: "hardcoded",
 		calls: 1,
 		costUsd,
-		detail: `${result.usage.promptTokens} in / ${result.usage.outputTokens} out tokens`,
+		detail: "Hardcoded story plan — no LLM call needed",
 	});
 	log(
 		"Story",
-		`OK — ${plan.scenes.length} scenes, "${plan.title}", $${costUsd.toFixed(6)}`,
+		`OK — ${plan.scenes.length} scenes, "${plan.title}", $0 (hardcoded)`,
 	);
 	return { plan, costUsd };
 }
 
 // === Stage 2 & 3: Image generation (Runware Qwen-Image) ===
 
-const ART_STYLE_PREFIX = `HIGH-QUALITY 3D ANIMATED MOVIE STYLE — like a modern Pixar/Disney animated film. Warm, cinematic children's animation with soft volumetric lighting, rich textures, cozy autumn atmosphere. Warm golden palette (oranges, ambers, soft browns). Sharp focus, high detail, professional quality.
+const ART_STYLE_PREFIX = `SOFT HAND-DRAWN CHILDREN'S STORYBOOK ANIMATION — beautiful illustrated book come to life. Warm cinematic painterly textures, golden sunlight. Rich child-friendly colors, whimsical, professional.
 
-MILO (same boy in every image): young boy aged 6-7, curly brown hair, big expressive brown eyes, blue jacket, yellow boots, kind curious face with rosy cheeks. Keep his face, hair, skin tone, clothing, and proportions EXACTLY consistent across every scene.
+LITTLE BIRD (same in every image): tiny young robin, fluffy brown feathers, orange-red chest, large dark eyes, small yellow beak, short wings, oversized feet. Keep EXACTLY consistent.
 
-ART STYLE: 3D animated movie style, warm golden cinematic lighting, rich textures, sharp focus. Vertical portrait composition.
+MOTHER BIRD (same in every image): gentle adult robin, brown feathers, orange-red chest, kind eyes, larger wings. Keep EXACTLY consistent.
 
-ABSOLUTELY NO TEXT: 100% text-free image. No words, letters, numbers, labels, captions, titles, subtitles, speech bubbles, signs, logos, watermarks, or written characters. Only pure visual artwork — characters, objects, environment. All text is added separately as overlays.`;
+ART STYLE: soft hand-drawn storybook, warm golden palette, painterly textures. Vertical portrait.
+
+ABSOLUTELY NO TEXT: 100% text-free. No words, letters, numbers, labels, captions, titles, subtitles, speech bubbles, signs, logos, watermarks. Pure visual artwork only. All text added separately.`;
 
 const NEGATIVE_PROMPT =
 	"text, words, letters, numbers, labels, captions, titles, subtitles, speech bubbles, signs, logos, watermarks, studio name, brand name, written characters, typography, font, handwriting, printed text, any text at all, blurry, low quality, deformed, extra limbs, bad anatomy, scary, dark, horror, flat lighting, washed out, cartoon, anime, 2d illustration, rough sketch, noisy, grainy, distorted face, mismatched eyes, extra fingers, malformed hands";
@@ -487,7 +610,7 @@ function selectComponentForScene(
 					plan.title.length > 60 ? plan.title.slice(0, 57) + "…" : plan.title,
 				subtitle: "",
 				hook: "",
-				label: "FUN STORY!",
+				label: "NATURE STORY!",
 			},
 		};
 	}
@@ -497,7 +620,7 @@ function selectComponentForScene(
 			data: {
 				cta: "Subscribe for more!",
 				channelName: "kidstorytime",
-				finalQuestion: "What's your favorite story?",
+				finalQuestion: "What would YOU try again?",
 			},
 		};
 	}
@@ -931,7 +1054,9 @@ async function generateAllImages(
 			log("Safeguard", `  ${scene.sceneId}: stripped text descriptions from imagePrompt`);
 		}
 
-		const fullPrompt = `${ART_STYLE_PREFIX}
+		const fullPrompt = `NO TEXT — generate ONLY visual artwork. No words, letters, numbers, captions, subtitles, labels, signs, speech bubbles, logos, or watermarks. Pure illustration only.
+
+${ART_STYLE_PREFIX}
 
 SCENE: ${cleanedImagePrompt}
 
@@ -939,7 +1064,7 @@ EMOTION: ${scene.emotion}
 
 ${textSafeInstructions}
 
-Vertical portrait composition. Absolutely no text in image.`;
+Vertical portrait. No text in image.`;
 
 		// Append the text-safe negative hint to the base negative prompt so
 		// the model avoids placing subjects in the reserved text region.
@@ -1615,7 +1740,7 @@ async function renderVideo(
 	},
 	outDir: string,
 ): Promise<{ videoPath: string; durationSec: number; sizeBytes: number }> {
-	const videoPath = join(outDir, "milo-and-the-little-star.mp4");
+	const videoPath = join(outDir, "little-bird-who-forgot-how-to-fly.mp4");
 
 	log("Render", `Remotion CLI rendering → ${videoPath}`);
 	const cmd = `bun node_modules/@remotion/cli/remotion-cli.js render "${composition.renderEntryPath}" "${composition.compositionId}" "${videoPath}" --public-dir="${composition.publicDir}" --log=error`;
@@ -1937,7 +2062,7 @@ export async function run(): Promise<SpikeResult> {
 		"  ────────────────────────────── ─────────────── ──── ────────── ────────────",
 	);
 	console.log(
-		`  milo-reference.jpg             ref (Milo)      0    ${"—".padStart(8)}   $${(refCostEntry?.costUsd ?? 0).toFixed(6)}`.padEnd(0),
+		`  bird-reference.jpg             ref (Bird)      0    ${"—".padStart(8)}   $${(refCostEntry?.costUsd ?? 0).toFixed(6)}`.padEnd(0),
 	);
 	for (const img of sceneImageEntries) {
 		const req = `${img.sceneId}.jpg`.padEnd(31);
@@ -1997,8 +2122,8 @@ export async function run(): Promise<SpikeResult> {
 
 	return {
 		id: SPIKE_ID,
-		name: "Kids Story Video: DeepSeek + Runware + Gemini TTS + Remotion",
-		goal: "Generate a complete kids storytelling video using DeepSeek for LLM, Runware Qwen-Image for images, Gemini TTS for narration, and the Remotion kids template for rendering.",
+		name: "Kids Story Video: The Little Bird Who Forgot How to Fly",
+		goal: "Generate a complete kids storytelling video about a little bird learning to fly, using DeepSeek for LLM, Runware Qwen-Image for images, Gemini TTS for narration, and the Remotion kids template for rendering.",
 		result: video ? "pass" : "partial",
 		measurements: {
 			storyTitle: plan.title,
