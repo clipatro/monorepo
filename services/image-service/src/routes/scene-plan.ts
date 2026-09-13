@@ -177,7 +177,13 @@ export function registerScenePlanRoutes(app: Hono, config: AppConfig, client: Ll
         if (s.characters && Array.isArray(s.characters)) {
           for (let i = 0; i < s.characters.length; i++) {
             const sc = s.characters[i]!;
-            const versionId = resolveCharacterVersionId(sc.name, roster);
+            let versionId = resolveCharacterVersionId(sc.name, roster);
+            // Kids channels have one locked protagonist — if the planner used a
+            // story-specific name that doesn't resolve to the roster, link the
+            // protagonist to the story's frozen character version anyway.
+            if (!versionId && isKidsTemplate && sc.roleInScene === "protagonist" && story.character_version_id) {
+              versionId = story.character_version_id;
+            }
             await db.prepare(`
               INSERT INTO scene_characters (id, scene_id, character_version_id, character_name, role_in_scene, pose_and_expression, "order", created_at)
               VALUES (?, ?, ?, ?, ?, ?, ?, now())

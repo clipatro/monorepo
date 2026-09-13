@@ -150,6 +150,9 @@ function buildScenePlanPrompt(
         "- Each scene must have a clear image, action, and emotion. Think in visual scenes, not sentences.",
         "- Narration should sound natural when spoken aloud by a warm storyteller — not a script being read.",
         "- Include a final 'end card' scene with NO narration (narrationText: \"\") — this is where the subscribe CTA appears.",
+        ...(characterRoster.length > 0 ? [
+          `- The locked channel protagonist is ${characterRoster[0]!.name}. Refer to them by name (\"${characterRoster[0]!.name}\") in every visualEvent and list them in \"characters\" — never use a different name or species for the protagonist.`,
+        ] : []),
         "",
         "NO TEXT IN IMAGES (CRITICAL — APPLIES TO ALL SCENES):",
         "- Every visualEvent must describe ONLY visual elements: characters, objects, environment, lighting, mood, and composition.",
@@ -158,10 +161,9 @@ function buildScenePlanPrompt(
         "- All subtitles, captions, titles, and text overlays are rendered SEPARATELY by the video system after the image is generated.",
         "",
         "SUBTITLE POSITION INTELLIGENCE (CRITICAL):",
-        "For EACH scene, you must decide whether the subtitle/caption should appear at the TOP or BOTTOM of the frame. This decision must be based on the scene's visual composition:",
-        "- Choose \"top\" when the scene's image naturally has the character/subject in the LOWER portion of the frame (e.g. looking up at the sky, standing in a valley, underground, reaching upward). The subtitle goes at top, character stays low.",
-        "- Choose \"bottom\" when the scene's image naturally has the character/subject in the UPPER portion of the frame (e.g. standing tall, looking down from a hill, aerial view, tall trees). The subtitle goes at bottom, character stays high.",
-        "- The goal: the subtitle must NEVER overlap the character's face, body, or important visual elements. Choose the position that keeps the subtitle away from where the character/subject will be.",
+        "For EACH scene, you must decide whether the caption band should appear at the TOP or BOTTOM of the frame. Captions are rendered in a dedicated band that is physically SEPARATE from the image (the image sits in its own window), so overlap is impossible — but the band position still shapes the composition:",
+        "- Choose \"top\" when the character's gaze or action points UPWARD (looking up at the sky, reaching up, standing in a valley, underground). The caption band sits at top, the image window below it — the gaze leads into the caption.",
+        "- Choose \"bottom\" when the character's gaze or action points DOWNWARD or is neutral (standing tall, looking down from a hill, aerial view). The caption band sits at bottom, the image window above it — the standard reading position.",
         "- Vary the positions across scenes for visual variety — don't use the same position for every scene unless the story demands it.",
         "- The first scene (title card) and last scene (end card) should use \"bottom\" since they have special layouts.",
         "",
@@ -235,7 +237,7 @@ function buildScenePlanPrompt(
       "characters": [
         { "name": "character name from the story characters", "roleInScene": "protagonist|supporting|antagonist", "poseAndExpression": "specific body language and expression for this character in this scene" }
       ],
-      "subtitlePosition": "top or bottom — where the subtitle should appear, chosen so it never overlaps the character",
+      "subtitlePosition": "top or bottom — where the caption band appears (choose based on the character's gaze/action direction)",
       "emotion": "the emotional tone of this scene (e.g. 'wonder', 'excitement', 'warmth', 'joy', 'curiosity', 'courage', 'friendship')"
     }
   ]

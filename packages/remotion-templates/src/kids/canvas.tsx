@@ -984,6 +984,311 @@ export const KidsSceneCanvas: React.FC<KidsSceneCanvasProps> = ({
   );
 };
 
+// ─── KidsLetterboxCanvas — separated image + caption-band layout ────────────
+//
+// Unlike KidsSceneCanvas (full-bleed image with text overlaid on top),
+// KidsLetterboxCanvas physically SEPARATES the image from the text — the
+// technique TikTok/YouTube story channels use:
+//
+//  - The scene image renders inside a dedicated window at the opposite edge
+//    of the caption band. Text can NEVER overlap the subject, no matter how
+//    the image model composed the scene.
+//  - The caption band is an "ambient" extension of the same image — heavily
+//    blurred and darkened — so every scene's band automatically matches the
+//    image's palette while keeping text legible.
+//  - Bonus: generated scenes are portrait 2:3, so the shorter image window
+//    crops less of the picture than a full-bleed 9:16 cover-fit does.
+//  - Platform safe areas are baked in: bottom-band content is pinned above
+//    the TikTok/Shorts UI zone, top-band content sits below the top UI.
+//
+// Use this canvas for any component whose text is narration/caption-style —
+// the text lives in the band, the image lives in the window, and neither
+// touches the other.
+
+export type KidsCaptionZone = "top" | "bottom";
+
+export interface KidsLetterboxCanvasProps {
+  children?: React.ReactNode;
+  theme?: ThemeConfig;
+  delay?: number;
+  /** Hero image URL — rendered inside its own window, never under text */
+  imageUrl?: string;
+  /** Image alt text */
+  imageAlt?: string;
+  /** Image focal point for object-position (e.g. "50% 30%") */
+  imageFocalPoint?: string;
+  /** Image treatment — kids images are bright and saturated by default */
+  imageTreatment?: "bright" | "vivid" | "soft" | "clean";
+  /** Ken Burns zoom direction */
+  kenBurns?: "in" | "out" | "none";
+  /** Ken Burns pan direction */
+  kenBurnsPan?: "left" | "right" | "up" | "down" | "none";
+  /** Zoom intensity (0.18 = 18% zoom over the duration). Default 0.12. */
+  zoomIntensity?: number;
+  /** Which edge hosts the dedicated caption band */
+  captionZone?: KidsCaptionZone;
+  /** Caption band height in px. Defaults: 420 (bottom), 360 (top). */
+  zoneSize?: number;
+  /** Band background: "ambient" (blurred image fill) or "solid" (theme base). Default "ambient". */
+  bandStyle?: "ambient" | "solid";
+  /** Show floating decorative shapes inside the caption band. Default true. */
+  decorations?: boolean;
+  /** Style override for the caption-band content layer */
+  overlayStyle?: React.CSSProperties;
+}
+
+export const KidsLetterboxCanvas: React.FC<KidsLetterboxCanvasProps> = ({
+  children,
+  theme,
+  delay = 0,
+  imageUrl,
+  imageAlt = "",
+  imageFocalPoint = "50% 50%",
+  imageTreatment = "bright",
+  kenBurns = "in",
+  kenBurnsPan = "right",
+  zoomIntensity = 0.12,
+  captionZone = "bottom",
+  zoneSize,
+  bandStyle = "ambient",
+  decorations = true,
+  overlayStyle,
+}) => {
+  const frame = useCurrentFrame();
+  const { durationInFrames, fps, height, width } = useVideoConfig();
+  const t = getKidsTokens(theme);
+
+  const isBottom = captionZone === "bottom";
+  // Bottom bands must reserve room for the platform UI (~220px on TikTok/
+  // Shorts) below the text; top bands reserve ~80px above it.
+  const bandHeight = zoneSize ?? (isBottom ? 420 : 360);
+  const imageHeight = Math.max(0, height - bandHeight);
+  const platformInset = isBottom ? 200 : 64;
+
+  // Bouncy spring entrance
+  const entrance = spring({
+    frame: frame - delay,
+    fps,
+    config: { damping: 14, stiffness: 110, mass: 0.9 },
+  });
+
+  // Ken Burns slow zoom + pan over the full duration
+  const travel = interpolate(frame, [0, Math.max(1, durationInFrames)], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const baseScale = 1.08;
+  const heroZoom =
+    kenBurns === "in"
+      ? baseScale + travel * zoomIntensity
+      : kenBurns === "out"
+      ? baseScale + zoomIntensity - travel * zoomIntensity
+      : baseScale;
+  const panDist = 24;
+  const heroTx = kenBurnsPan === "left" ? -travel * panDist : kenBurnsPan === "right" ? travel * panDist : 0;
+  const heroTy = kenBurnsPan === "up" ? -travel * panDist * 0.5 : kenBurnsPan === "down" ? travel * panDist * 0.5 : 0;
+
+  // Image filter — bright, saturated, happy
+  const heroFilter =
+    imageTreatment === "vivid"
+      ? "saturate(1.25) contrast(1.08) brightness(1.05)"
+      : imageTreatment === "soft"
+      ? "saturate(1.1) brightness(1.08) contrast(0.98)"
+      : imageTreatment === "clean"
+      ? "brightness(1.0)"
+      : "saturate(1.15) contrast(1.05) brightness(1.03)";
+
+  // Exit fade
+  const exit = interpolate(frame, [Math.max(0, durationInFrames - 10), durationInFrames], [1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.in(Easing.quad),
+  });
+
+  // Band entrance — slides in from its own edge after the image settles
+  const bandEntrance = spring({
+    frame: frame - delay - 6,
+    fps,
+    config: { damping: 14, stiffness: 115, mass: 0.9 },
+  });
+  const bandSlide = (1 - bandEntrance) * 50 * (isBottom ? 1 : -1);
+
+  // Decorative floating shapes — constrained to the caption band so they
+  // never drift over the image window.
+  const decor = [
+    { shape: "circle", color: t.accent, x: 52, y: 30, size: 34, speed: 0.3, phase: 0 },
+    { shape: "star", color: t.secondary, x: width - 92, y: 44, size: 26, speed: 0.4, phase: 1.5 },
+    { shape: "circle", color: t.tertiary, x: width - 150, y: bandHeight - 90, size: 22, speed: 0.25, phase: 3 },
+    { shape: "star", color: t.accent, x: 110, y: bandHeight - 70, size: 20, speed: 0.35, phase: 2.2 },
+  ];
+
+  // The image window's rounded corners face the band edge
+  const imageRadius: React.CSSProperties = isBottom
+    ? { borderBottomLeftRadius: t.radiusXl, borderBottomRightRadius: t.radiusXl }
+    : { borderTopLeftRadius: t.radiusXl, borderTopRightRadius: t.radiusXl };
+
+  return (
+    <AbsoluteFill
+      style={{
+        background: `linear-gradient(160deg, ${t.base} 0%, ${t.surface} 60%, ${t.elevated} 100%)`,
+        color: "#ffffff",
+        fontFamily: t.sans,
+        overflow: "hidden",
+        opacity: exit,
+      }}
+    >
+      {/* ── Ambient background — the same image, blurred + darkened, fills the
+             whole frame so the caption band always matches the scene palette ── */}
+      {bandStyle === "ambient" && imageUrl && (
+        <div style={{ position: "absolute", inset: 0, overflow: "hidden", zIndex: 0 }}>
+          <img
+            src={imageUrl}
+            alt=""
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: imageFocalPoint,
+              filter: "blur(36px) brightness(0.62) saturate(1.25)",
+              transform: "scale(1.35)", // hide blur edge falloff
+            }}
+          />
+        </div>
+      )}
+      {/* Solid variant — flat theme color band instead of ambient blur */}
+      {bandStyle === "solid" && (
+        <div
+          style={{
+            position: "absolute",
+            [isBottom ? "bottom" : "top"]: 0,
+            left: 0,
+            right: 0,
+            height: bandHeight,
+            background: `linear-gradient(${isBottom ? "to top" : "to bottom"}, ${t.base}, ${t.surface})`,
+            zIndex: 0,
+          }}
+        />
+      )}
+
+      {/* ── Image window — sharp, contained, Ken Burns, rounded corner facing
+             the band. The subject is FULLY visible: no text renders over it. ── */}
+      {imageUrl && (
+        <div
+          style={{
+            position: "absolute",
+            [isBottom ? "top" : "bottom"]: 0,
+            left: 0,
+            right: 0,
+            height: imageHeight,
+            overflow: "hidden",
+            zIndex: 2,
+            opacity: entrance,
+            boxShadow: isBottom
+              ? "0 10px 36px rgba(0,0,0,0.35)"
+              : "0 -10px 36px rgba(0,0,0,0.35)",
+            ...imageRadius,
+          }}
+        >
+          <img
+            src={imageUrl}
+            alt={imageAlt}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: imageFocalPoint,
+              filter: heroFilter,
+              transform: `translate3d(${heroTx}px, ${heroTy}px, 0) scale(${heroZoom})`,
+            }}
+          />
+          {/* Thin highlight along the band edge — separates window from band */}
+          <div
+            style={{
+              position: "absolute",
+              [isBottom ? "bottom" : "top"]: 0,
+              left: 0,
+              right: 0,
+              height: 3,
+              background: "linear-gradient(to right, rgba(255,255,255,0), rgba(255,255,255,0.55), rgba(255,255,255,0))",
+            }}
+          />
+        </div>
+      )}
+
+      {/* ── Caption band — the dedicated text zone. Content is centered inside
+             the usable interior (clear of platform UI). ── */}
+      <div
+        style={{
+          position: "absolute",
+          [isBottom ? "bottom" : "top"]: 0,
+          left: 0,
+          right: 0,
+          height: bandHeight,
+          zIndex: 5,
+        }}
+      >
+        {/* Floating decorations inside the band only */}
+        {decorations &&
+          decor.map((d, i) => {
+            const drift = Math.sin((frame + d.phase * 30) * 0.02 * d.speed) * 10;
+            const driftY = Math.cos((frame + d.phase * 30) * 0.018 * d.speed) * 6;
+            const decorEntrance = spring({
+              frame: frame - delay - i * 4,
+              fps,
+              config: { damping: 12, stiffness: 100 },
+            });
+            return (
+              <div
+                key={i}
+                style={{
+                  position: "absolute",
+                  left: d.x,
+                  top: d.y + driftY,
+                  width: d.size,
+                  height: d.size,
+                  opacity: decorEntrance * 0.5,
+                  transform: `translateY(${drift}px) rotate(${drift * 1.5}deg)`,
+                }}
+              >
+                {d.shape === "circle" && (
+                  <div style={{ width: "100%", height: "100%", borderRadius: "50%", background: d.color }} />
+                )}
+                {d.shape === "star" && (
+                  <svg viewBox="0 0 24 24" width="100%" height="100%">
+                    <path
+                      d="M12 2l2.9 6.9L22 10l-5.5 4.8L18 22l-6-3.5L6 22l1.5-7.2L2 10l7.1-1.1z"
+                      fill={d.color}
+                    />
+                  </svg>
+                )}
+              </div>
+            );
+          })}
+
+        {/* Content — centered inside the usable interior of the band */}
+        <div
+          style={{
+            position: "absolute",
+            left: 44,
+            right: 44,
+            top: isBottom ? 0 : platformInset,
+            bottom: isBottom ? platformInset : 0,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "stretch",
+            opacity: bandEntrance,
+            transform: `translateY(${bandSlide}px)`,
+            ...overlayStyle,
+          }}
+        >
+          {children}
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+};
+
 // ─── KidsScrim — reusable gradient scrim overlay primitive ──────────────────
 //
 // A standalone scrim layer that other overlay components (speech bubbles,

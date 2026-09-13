@@ -8,6 +8,7 @@ import { ensureDir, runCmd } from "./utils";
 function buildManifest(params: {
 	runId: string;
 	channelId: string;
+	channelName?: string;
 	storyId: string;
 	storyTitle: string;
 	voiceoverId: string;
@@ -32,6 +33,7 @@ function buildManifest(params: {
 		createdAt: new Date().toISOString(),
 		runId: params.runId,
 		channelId: params.channelId,
+		channelName: params.channelName,
 		storyId: params.storyId,
 		storyTitle: params.storyTitle,
 		audio: {

@@ -173,6 +173,7 @@ export function buildCharacterContextPrompt(
   roster: CharacterRosterEntry[],
   mentioned: CharacterRosterEntry[],
   hasStoryline: boolean,
+  opts?: { kidsChannel?: boolean },
 ): string {
   if (roster.length === 0) {
     return `CHARACTER CONTEXT:
@@ -218,13 +219,27 @@ No characters are currently associated with this channel. If the story would ben
       })
     : ["No specific characters detected by name in the topic. Use roster characters whose personality fits the story."];
 
+  // Kids channels have a single locked protagonist — the channel's face. The
+  // story must always star that character: the topic's hero, animal, or idea
+  // is recast as something the locked character experiences or meets. This
+  // keeps image generation consistent (one fixed identity + fixed seed).
+  const kidsRule = opts?.kidsChannel
+    ? `KIDS CHANNEL — LOCKED PROTAGONIST (hard rule):
+- The protagonist of EVERY candidate must be ${roster[0]!.name}, the channel's locked character. Do not invent a different protagonist.
+- Recast the topic onto ${roster[0]!.name}: if the topic names an animal, creature, or object (e.g. "a hedgehog afraid of the dark"), ${roster[0]!.name} experiences or meets it — the topic's hero becomes ${roster[0]!.name} or a simple supporting element ${roster[0]!.name} encounters.
+- Every candidate MUST list ${roster[0]!.name} in "characters" with roleInStory "protagonist" and existingCharacterId set.
+- Supporting creatures are allowed but keep them simple and non-recurring; the story must work with ${roster[0]!.name} as the only human/child character.
+
+`
+    : "";
+
   return `CHARACTER ROSTER (characters available in this channel):
 ${rosterLines.join("\n")}
 
 MENTIONED CHARACTERS (detected in topic${hasStoryline ? "/storyline" : ""}/niche):
 ${mentionedLines.join("\n")}
 
-CHARACTER INSTRUCTIONS:
+${kidsRule}CHARACTER INSTRUCTIONS:
 - Use the mentioned characters in the story. Respect their established personalities, backgrounds, and relationships.
 - You may use other roster characters if their personality fits the story.
 - If the story requires a character not in the roster, create one with a full character bible (name, age, gender, heritage, skinTone, eyeColor, hairColor, hairStyle, build, distinguishingFeatures, wardrobe, personality, background, relationships, speakingStyle, role, immutableTraits). New characters will be automatically added to the channel.

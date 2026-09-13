@@ -330,7 +330,11 @@ If a previous scene image is provided as the last reference, use it for visual c
       .prepare('SELECT MAX("order") as m FROM scenes WHERE story_id = ?')
       .get(scene.story_id) as { m: number | null } | null;
     const lastOrder = lastOrderRow?.m ?? scene.order;
-    const bible = characterInfos[0]?.bible ?? null;
+    // Kids stories have a single locked character — prefer the story's frozen
+    // character version bible when scene_characters rows aren't linked to a
+    // version (planner may leave character_version_id NULL).
+    const bible = characterInfos[0]?.bible
+      ?? (characterVersion ? (JSON.parse(characterVersion.bible) as Record<string, unknown>) : null);
     const characterIdentity = bible ? buildCharacterIdentity(bible) : null;
     const cleanedVisualEvent = stripTextFromPrompt(scene.visual_event);
     if (cleanedVisualEvent !== scene.visual_event) {

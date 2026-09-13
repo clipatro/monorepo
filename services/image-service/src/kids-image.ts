@@ -38,43 +38,58 @@ export interface KidsTextPlacement {
 	description: string;
 	verticalExtent: { from: number; to: number };
 	horizontalExtent: { from: number; to: number };
+	/**
+	 * When true, the component renders text in a dedicated caption band that
+	 * is physically separate from the image window (KidsLetterboxCanvas) —
+	 * the image model does NOT need to reserve a clear region. Compose the
+	 * scene naturally with the subject fully visible.
+	 */
+	separateFromImage?: boolean;
 }
 
+// All kids components use KidsLetterboxCanvas — text always lives in a
+// dedicated caption band OUTSIDE the image window, so every placement has
+// separateFromImage: true and the image model composes scenes naturally.
 const KIDS_TEXT_PLACEMENTS: Record<string, KidsTextPlacement> = {
 	"kids-title-card": {
-		zone: "top",
+		zone: "bottom",
 		description:
-			"Title, hook, subtitle, and label pill appear in the TOP portion of the frame (roughly the top 45%). Keep characters and key subjects in the lower 55% of the frame.",
-		verticalExtent: { from: 0.06, to: 0.45 },
-		horizontalExtent: { from: 0.05, to: 0.95 },
+			"The label pill, hook, title, and subtitle appear in a dedicated caption BAND at the bottom of the frame, physically separate from the image window.",
+		verticalExtent: { from: 0.58, to: 1.0 },
+		horizontalExtent: { from: 0.08, to: 0.92 },
+		separateFromImage: true,
 	},
 	"kids-ending": {
 		zone: "bottom",
 		description:
-			"The label pill, message, and encouragement appear in the LOWER portion of the frame, above the platform safe area (roughly 78%-93% down). Keep characters and key subjects in the upper 78% of the frame.",
-		verticalExtent: { from: 0.78, to: 0.93 },
+			"The label pill, message, and encouragement appear in a dedicated caption BAND at the bottom of the frame, physically separate from the image window.",
+		verticalExtent: { from: 0.67, to: 1.0 },
 		horizontalExtent: { from: 0.08, to: 0.92 },
+		separateFromImage: true,
 	},
 	"kids-end-card": {
 		zone: "bottom",
 		description:
-			"The final question, subscribe CTA button, and channel name appear in the LOWER portion of the frame, above the platform safe area (roughly 75%-92% down). Keep characters and key subjects in the upper 75% of the frame.",
-		verticalExtent: { from: 0.75, to: 0.92 },
+			"The final question, subscribe CTA button, and channel name appear in a dedicated caption BAND at the bottom of the frame, physically separate from the image window.",
+		verticalExtent: { from: 0.67, to: 1.0 },
 		horizontalExtent: { from: 0.08, to: 0.92 },
+		separateFromImage: true,
 	},
 	"kids-subtitle-top-scene": {
 		zone: "top",
 		description:
-			"The subtitle speech bubble appears at the TOP of the frame (roughly 6%-30% down). Keep ALL characters, faces, hands, and important objects in the LOWER 70% of the frame — well below the subtitle region.",
-		verticalExtent: { from: 0.06, to: 0.3 },
+			"The subtitle speech bubble appears in a dedicated caption BAND at the TOP of the frame, physically separate from the image window below.",
+		verticalExtent: { from: 0.0, to: 0.28 },
 		horizontalExtent: { from: 0.1, to: 0.9 },
+		separateFromImage: true,
 	},
 	"kids-subtitle-bottom-scene": {
 		zone: "bottom",
 		description:
-			"The subtitle speech bubble appears at the BOTTOM of the frame (roughly 72%-90% down). Keep ALL characters, faces, hands, and important objects in the UPPER 72% of the frame — well above the subtitle region.",
-		verticalExtent: { from: 0.72, to: 0.9 },
+			"The subtitle speech bubble appears in a dedicated caption BAND at the BOTTOM of the frame, physically separate from the image window above.",
+		verticalExtent: { from: 0.67, to: 1.0 },
 		horizontalExtent: { from: 0.1, to: 0.9 },
+		separateFromImage: true,
 	},
 };
 
@@ -113,6 +128,16 @@ export function textPlacementToImageInstructions(tp: KidsTextPlacement): string 
 	const hFromPct = Math.round(tp.horizontalExtent.from * 100);
 	const hToPct = Math.round(tp.horizontalExtent.to * 100);
 
+	// Letterboxed components render text in a dedicated band that is physically
+	// separate from the image — the image model does NOT need to reserve any
+	// region. Just compose the scene naturally with the subject fully visible.
+	if (tp.separateFromImage) {
+		return [
+			`COMPOSITION: A text caption will be rendered in a dedicated band OUTSIDE this image (at the ${tp.zone} of the frame) — no text or captions appear inside the image itself.`,
+			`Compose the scene naturally: subject centered and fully visible, nothing cropped or pushed against any edge. Leave a little breathing room around the subject.`,
+		].join(" ");
+	}
+
 	let safeZone: string;
 	if (tp.zone === "top") {
 		safeZone = `Place all characters and important objects in the LOWER ${100 - vToPct}% of the frame (below ${vToPct}% down).`;
@@ -137,19 +162,26 @@ export function textPlacementToImageInstructions(tp: KidsTextPlacement): string 
 
 /** Negative-prompt fragment reinforcing the text-safe area. */
 export function textPlacementToNegativeHint(tp: KidsTextPlacement): string {
+	// Letterboxed components keep text outside the image entirely — the
+	// negative prompt only needs to guard against a cropped/edge-pressed subject.
+	if (tp.separateFromImage) {
+		return `cropped subject, subject touching frame edge, text, captions, letters, words, labels`;
+	}
 	const vFromPct = Math.round(tp.verticalExtent.from * 100);
 	const vToPct = Math.round(tp.verticalExtent.to * 100);
 	return `characters or important objects in the ${tp.zone} text region (${vFromPct}%-${vToPct}% down), text overlap, cropped subject, subject touching frame edge`;
 }
 
-// === Subtitle-position conflict safeguard (ported from the spike) =========
+// === Subtitle-position composition safeguard (ported from the spike) ======
 //
 // Runs AFTER the scene plan is generated but BEFORE image generation. For
 // each scene, it analyzes the visualEvent for character/subject position
-// cues and checks them against the chosen subtitlePosition. If the subject
-// is described in the SAME region as the reserved subtitle area, the
-// position is flipped so the image generator and component layout keep
-// characters away from the subtitle.
+// cues and checks them against the chosen subtitlePosition. With the
+// letterbox layout the caption band is physically separate from the image,
+// so overlap is impossible — but matching the band to the subject's
+// position still produces better composition (a character looking up reads
+// naturally with the caption above). If the subject is described in the
+// SAME region the band would occupy, the position is flipped.
 
 const STRONG_UPPER_CUES = [
 	"arms stretched upward",
@@ -250,7 +282,7 @@ export function validateSubtitlePositions(
 				order: scene.order,
 				original: chosen,
 				corrected: flipped,
-				reason: `Important visual elements detected in ${regionCues} region(s), subtitle was at ${chosen} — flipped to ${flipped} to avoid overlap`,
+				reason: `Subject occupies the ${regionCues} region, caption band was at ${chosen} — flipped to ${flipped} for better composition`,
 			});
 			scene.subtitlePosition = flipped;
 		}

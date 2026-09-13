@@ -123,6 +123,7 @@ function selectComponentForScene(
   storyTitle: string,
   subtitlePosition: string | null,
   emotion: string,
+  channelName: string,
 ): { componentSlug: string; data: Record<string, unknown> } {
   const isFirst = index === 0;
   const isLast = index === lastIndex;
@@ -143,7 +144,7 @@ function selectComponentForScene(
       componentSlug: "kids-end-card",
       data: {
         cta: "Subscribe for more!",
-        channelName: "kidstorytime",
+        channelName,
         finalQuestion: "What's your favorite story?",
       },
     };
@@ -335,6 +336,7 @@ export function registerKidsRoutes(app: Hono, _config: AppConfig): void {
       }
       const manifest = JSON.parse(await readFile(manifestPath, "utf-8")) as {
         storyTitle?: string;
+        channelName?: string;
         scenes?: {
           count?: number;
           images?: Array<{ order: number; file: string }>;
@@ -344,6 +346,7 @@ export function registerKidsRoutes(app: Hono, _config: AppConfig): void {
       };
 
       const storyTitle = manifest.storyTitle ?? "Kids Story";
+      const channelName = manifest.channelName ?? "kidstorytime";
       const sceneImages = manifest.scenes?.images ?? [];
       const imageTimeline = manifest.scenes?.imageTimeline ?? [];
 
@@ -402,6 +405,7 @@ export function registerKidsRoutes(app: Hono, _config: AppConfig): void {
           storyTitle,
           subtitlePosition,
           emotion,
+          channelName,
         );
 
         timedScenes.push({

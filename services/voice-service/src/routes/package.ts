@@ -200,6 +200,7 @@ export function registerPackageRoutes(app: Hono, config: AppConfig): void {
 		const manifest = buildManifest({
 			runId,
 			channelId: channel.id,
+			channelName: channel.name,
 			storyId,
 			storyTitle: story.title,
 			voiceoverId: voiceover.id,

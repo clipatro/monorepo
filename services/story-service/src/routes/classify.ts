@@ -112,7 +112,8 @@ export function registerClassifyRoutes(app: Hono, config: AppConfig, client: Llm
 
     // Build character roster for the concept director (D014)
     const roster = channelId ? await getChannelCharacterRoster(channelId) : [];
-    const characterContextPrompt = buildCharacterContextPrompt(roster, [], !!storyline);
+    const isKidsChannel = channel?.video_template === "kids-9x16" || channel?.video_template === "kids-16x9";
+    const characterContextPrompt = buildCharacterContextPrompt(roster, [], !!storyline, { kidsChannel: isKidsChannel });
 
     const prompt = buildClassificationPrompt(topic, storyline, channel, characterContextPrompt, providedContentType);
 
