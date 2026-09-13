@@ -370,8 +370,25 @@ export class WorkflowEngine {
     const steps = await db.prepare("SELECT * FROM workflow_steps WHERE run_id = ? ORDER BY created_at ASC").all(runId) as WorkflowStepRow[];
     const approvals = await db.prepare("SELECT * FROM approvals WHERE run_id = ? ORDER BY created_at ASC").all(runId) as ApprovalRow[];
 
-    const stepDetails: RunStepDetails[] = await Promise.all(steps.map(async (step) => {
-      const attempts = await db.prepare("SELECT * FROM workflow_step_attempts WHERE step_id = ? ORDER BY attempt_number ASC").all(step.id) as WorkflowStepAttemptRow[];
+    // Batch-load all attempts for all steps in this run in a single query
+    // (avoids N+1: was one query per step, now one query for all steps).
+    const stepIds = steps.map((s) => s.id);
+    let allAttempts: WorkflowStepAttemptRow[] = [];
+    if (stepIds.length > 0) {
+      const placeholders = stepIds.map(() => "?").join(",");
+      allAttempts = await db.prepare(
+        `SELECT * FROM workflow_step_attempts WHERE step_id IN (${placeholders}) ORDER BY attempt_number ASC`,
+      ).all(...stepIds) as WorkflowStepAttemptRow[];
+    }
+    const attemptsByStep = new Map<string, WorkflowStepAttemptRow[]>();
+    for (const a of allAttempts) {
+      const arr = attemptsByStep.get(a.step_id) ?? [];
+      arr.push(a);
+      attemptsByStep.set(a.step_id, arr);
+    }
+
+    const stepDetails: RunStepDetails[] = steps.map((step) => {
+      const attempts = attemptsByStep.get(step.id) ?? [];
       const node = PIPELINE_GRAPH.find((n) => n.type === step.step_type);
       const parsedStepData = JSON.parse(step.step_data) as Record<string, unknown>;
       return {
@@ -408,7 +425,7 @@ export class WorkflowEngine {
           completedAt: a.completed_at,
         })),
       };
-    }));
+    });
 
     return {
       id: run.id,
@@ -441,12 +458,7 @@ export class WorkflowEngine {
     const runs = channelId
       ? await db.prepare("SELECT * FROM workflow_runs WHERE channel_id = ? ORDER BY created_at DESC").all(channelId) as WorkflowRunRow[]
       : await db.prepare("SELECT * FROM workflow_runs ORDER BY created_at DESC").all() as WorkflowRunRow[];
-    const details: RunDetails[] = [];
-    for (const r of runs) {
-      const d = await this.getRunDetails(r.id);
-      if (d) details.push(d);
-    }
-    return details;
+    return await this.batchGetRunDetails(runs);
   }
 
   /**
@@ -489,12 +501,136 @@ export class WorkflowEngine {
       `SELECT * FROM workflow_runs ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
     ).all(...(params as never[]), limit, offset) as WorkflowRunRow[];
 
-    const details: RunDetails[] = [];
-    for (const r of runs) {
-      const d = await this.getRunDetails(r.id);
-      if (d) details.push(d);
-    }
+    const details = await this.batchGetRunDetails(runs);
     return { runs: details, total };
+  }
+
+  /**
+   * Batch-load full RunDetails for multiple runs in a few queries instead of
+   * calling getRunDetails per-run (which was N+1 on steps + attempts).
+   *
+   * Runs 3 queries total regardless of run count:
+   * 1. All steps for all runs
+   * 2. All attempts for all steps
+   * 3. All approvals for all runs
+   */
+  private async batchGetRunDetails(runs: WorkflowRunRow[]): Promise<RunDetails[]> {
+    if (runs.length === 0) return [];
+    const db = getDb();
+    const runIds = runs.map((r) => r.id);
+
+    // 1. Load all steps for all runs in one query
+    const stepPlaceholders = runIds.map(() => "?").join(",");
+    const allSteps = await db.prepare(
+      `SELECT * FROM workflow_steps WHERE run_id IN (${stepPlaceholders}) ORDER BY created_at ASC`,
+    ).all(...runIds) as WorkflowStepRow[];
+
+    // 2. Load all attempts for all steps in one query
+    const stepIds = allSteps.map((s) => s.id);
+    let allAttempts: WorkflowStepAttemptRow[] = [];
+    if (stepIds.length > 0) {
+      const attemptPlaceholders = stepIds.map(() => "?").join(",");
+      allAttempts = await db.prepare(
+        `SELECT * FROM workflow_step_attempts WHERE step_id IN (${attemptPlaceholders}) ORDER BY attempt_number ASC`,
+      ).all(...stepIds) as WorkflowStepAttemptRow[];
+    }
+    const attemptsByStep = new Map<string, WorkflowStepAttemptRow[]>();
+    for (const a of allAttempts) {
+      const arr = attemptsByStep.get(a.step_id) ?? [];
+      arr.push(a);
+      attemptsByStep.set(a.step_id, arr);
+    }
+
+    // 3. Load all approvals for all runs in one query
+    const allApprovals = await db.prepare(
+      `SELECT * FROM approvals WHERE run_id IN (${stepPlaceholders}) ORDER BY created_at ASC`,
+    ).all(...runIds) as ApprovalRow[];
+    const approvalsByRun = new Map<string, ApprovalRow[]>();
+    for (const a of allApprovals) {
+      const arr = approvalsByRun.get(a.run_id) ?? [];
+      arr.push(a);
+      approvalsByRun.set(a.run_id, arr);
+    }
+
+    // Group steps by run
+    const stepsByRun = new Map<string, WorkflowStepRow[]>();
+    for (const s of allSteps) {
+      const arr = stepsByRun.get(s.run_id) ?? [];
+      arr.push(s);
+      stepsByRun.set(s.run_id, arr);
+    }
+
+    // Assemble RunDetails for each run
+    const details: RunDetails[] = [];
+    for (const run of runs) {
+      const steps = stepsByRun.get(run.id) ?? [];
+      const approvals = approvalsByRun.get(run.id) ?? [];
+
+      const stepDetails: RunStepDetails[] = steps.map((step) => {
+        const attempts = attemptsByStep.get(step.id) ?? [];
+        const node = PIPELINE_GRAPH.find((n) => n.type === step.step_type);
+        const parsedStepData = JSON.parse(step.step_data) as Record<string, unknown>;
+        return {
+          id: step.id,
+          runId: step.run_id,
+          stepType: step.step_type as StepType,
+          label: node?.label ?? step.step_type,
+          status: step.status as StepStatus,
+          stepData: parsedStepData,
+          resultData: step.result_data ? JSON.parse(step.result_data) : null,
+          provider: step.provider,
+          model: step.model,
+          estimatedCostUsd: step.estimated_cost_usd,
+          actualCostUsd: step.actual_cost_usd,
+          leaseExpiresAt: step.lease_expires_at,
+          startedAt: step.started_at,
+          completedAt: step.completed_at,
+          createdAt: step.created_at,
+          dependsOn: (parsedStepData.dependsOn as string[]) ?? node?.dependsOn ?? [],
+          isPaid: node?.isPaid ?? false,
+          requiresApproval: node?.requiresApproval ?? false,
+          attempts: attempts.map((a) => ({
+            id: a.id,
+            stepId: a.step_id,
+            attemptNumber: a.attempt_number,
+            status: a.status as "running" | "completed" | "failed",
+            provider: a.provider,
+            model: a.model,
+            remoteRequestId: a.remote_request_id,
+            costUsd: a.cost_usd,
+            errorMessage: a.error_message,
+            logs: a.logs,
+            startedAt: a.started_at,
+            completedAt: a.completed_at,
+          })),
+        };
+      });
+
+      details.push({
+        id: run.id,
+        channelId: run.channel_id,
+        topic: run.topic,
+        contentType: run.content_type,
+        storyline: run.storyline,
+        status: run.status as RunStatus,
+        createdAt: run.created_at,
+        startedAt: run.started_at,
+        completedAt: run.completed_at,
+        steps: stepDetails,
+        approvals: approvals.map((a) => ({
+          id: a.id,
+          runId: a.run_id,
+          stepId: a.step_id,
+          approvalType: a.approval_type as ApprovalType,
+          status: a.status as "pending" | "approved" | "rejected",
+          reviewer: a.reviewer,
+          notes: a.notes,
+          createdAt: a.created_at,
+          decidedAt: a.decided_at,
+        })),
+      });
+    }
+    return details;
   }
 
   // === Step claiming and execution ===

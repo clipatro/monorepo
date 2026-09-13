@@ -10,3 +10,4 @@ export * from "./llm-client.ts";
 export * from "./character.ts";
 export * from "./video-template.ts";
 export * from "./dry-run.ts";
+export * from "./publish.ts";

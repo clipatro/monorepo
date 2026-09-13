@@ -26,6 +26,7 @@ import { registerResearchProxyRoutes } from "./routes/proxy-research";
 import { registerEmbeddingProxyRoutes } from "./routes/proxy-embedding";
 import { registerWorkflowProxyRoutes } from "./routes/proxy-workflow";
 import { registerVideoProxyRoutes } from "./routes/proxy-video";
+import { registerPublishProxyRoutes } from "./routes/proxy-publish";
 import { registerVideoStagingRoutes } from "./routes/video-staging";
 import { registerProviderOptionsRoutes } from "./routes/provider-options";
 import { registerTemplateRoutes } from "./routes/templates";
@@ -45,6 +46,7 @@ function setupRoutes(app: Hono, config: AppConfig): void {
   registerEmbeddingProxyRoutes(app, config);
   registerWorkflowProxyRoutes(app, config);
   registerVideoProxyRoutes(app, config);
+  registerPublishProxyRoutes(app, config);
   registerVideoStagingRoutes(app, config);
   registerProviderOptionsRoutes(app);
   registerTemplateRoutes(app);

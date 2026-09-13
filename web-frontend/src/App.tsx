@@ -10,6 +10,7 @@ import {
 	Mic,
 	Menu,
 	FlaskConical,
+	Library,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ import { PipelinePage } from "@/pages/PipelinePage";
 import { StoriesPage } from "@/pages/StoriesPage";
 import { ImagesPage } from "@/pages/ImagesPage";
 import { VoicePage } from "@/pages/VoicePage";
+import { LibraryPage } from "@/pages/LibraryPage";
 
 const navItems = [
 	{ to: "/channels", label: "Channels", icon: Film },
@@ -29,6 +31,7 @@ const navItems = [
 	{ to: "/stories", label: "Stories", icon: BookOpen },
 	{ to: "/images", label: "Images", icon: ImageIcon },
 	{ to: "/voice", label: "Voice", icon: Mic },
+	{ to: "/library", label: "Library", icon: Library },
 	{ to: "/pipeline", label: "Pipeline", icon: Workflow },
 	{ to: "/cost", label: "Cost", icon: DollarSign },
 ];
@@ -148,6 +151,7 @@ export default function App() {
 					<Route path="/stories" element={<StoriesPage />} />
 					<Route path="/images" element={<ImagesPage />} />
 					<Route path="/voice" element={<VoicePage />} />
+					<Route path="/library" element={<LibraryPage />} />
 					<Route path="/pipeline" element={<PipelinePage />} />
 					<Route path="/cost" element={<CostPage />} />
 					<Route path="*" element={<Navigate to="/channels" replace />} />

@@ -83,6 +83,10 @@ export interface AppConfig {
   r2SecretAccessKey: string | null;
   /** R2 public URL (optional, for public bucket access). */
   r2PublicUrl: string | null;
+  /** Zernio API key for social media publishing (never log this). D023. */
+  zernioApiKey: string | null;
+  /** Publishing provider: "zernio" (default). D023. */
+  publishProvider: "zernio";
   /** Other services' base URLs (for inter-service calls). */
   services: ServiceUrls;
 }
@@ -96,6 +100,7 @@ export interface ServiceUrls {
   embeddingService: string;
   workflowService: string;
   videoService: string;
+  publishService: string;
 }
 
 /** Default service URLs (Docker Compose service names). */
@@ -108,6 +113,7 @@ const defaultServiceUrls: ServiceUrls = {
   embeddingService: "http://embedding-service:3005",
   workflowService: "http://workflow-service:3006",
   videoService: "http://video-service:3007",
+  publishService: "http://publish-service:3008",
 };
 
 function num(key: string, fallback: number): number {
@@ -155,6 +161,8 @@ export function loadConfig(serviceName: string): AppConfig {
     r2AccessKeyId: process.env.R2_ACCESS_KEY_ID ?? null,
     r2SecretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? null,
     r2PublicUrl: process.env.R2_PUBLIC_URL ?? null,
+    zernioApiKey: process.env.ZERNIO_API_KEY ?? null,
+    publishProvider: "zernio",
     services: {
       apiGateway: str("API_GATEWAY_URL", defaultServiceUrls.apiGateway),
       storyService: str("STORY_SERVICE_URL", defaultServiceUrls.storyService),
@@ -164,6 +172,7 @@ export function loadConfig(serviceName: string): AppConfig {
       embeddingService: str("EMBEDDING_SERVICE_URL", defaultServiceUrls.embeddingService),
       workflowService: str("WORKFLOW_SERVICE_URL", defaultServiceUrls.workflowService),
       videoService: str("VIDEO_SERVICE_URL", defaultServiceUrls.videoService),
+      publishService: str("PUBLISH_SERVICE_URL", defaultServiceUrls.publishService),
     },
   };
 }
@@ -179,6 +188,7 @@ function defaultPort(serviceName: string): number {
     "embedding-service": 3005,
     "workflow-service": 3006,
     "video-service": 3007,
+    "publish-service": 3008,
   };
   return ports[serviceName] ?? 3000;
 }
@@ -210,6 +220,8 @@ export function redactedConfig(config: AppConfig): Record<string, unknown> {
     r2AccessKeyId: config.r2AccessKeyId ? "***REDACTED***" : null,
     r2SecretAccessKey: config.r2SecretAccessKey ? "***REDACTED***" : null,
     r2PublicUrl: config.r2PublicUrl,
+    zernioApiKey: config.zernioApiKey ? "***REDACTED***" : null,
+    publishProvider: config.publishProvider,
     services: config.services,
   };
 }
