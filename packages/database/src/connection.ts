@@ -130,40 +130,72 @@ class PgDatabaseImpl implements Database {
     return this.txStorage!.getStore() ?? this.pool;
   }
 
+  /**
+   * Retry a query on transient connection failures.
+   * Neon (serverless Postgres) can terminate idle connections, causing
+   * "Connection terminated unexpectedly" errors. The pool automatically
+   * creates a new connection on the next query, so a retry usually works.
+   */
+  private async withRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
+    for (let i = 0; i <= retries; i++) {
+      try {
+        return await fn();
+      } catch (err: any) {
+        const isTransient = err?.message?.includes("Connection terminated")
+          || err?.message?.includes("ECONNRESET")
+          || err?.message?.includes("ETIMEDOUT")
+          || err?.message?.includes("ECONNREFUSED");
+        if (!isTransient || i === retries) throw err;
+        await new Promise((r) => setTimeout(r, 500 * (i + 1)));
+      }
+    }
+    throw new Error("unreachable");
+  }
+
   prepare(sql: string): PreparedStatement {
     const pgSql = convertPlaceholders(sql);
 
     return {
       run: async (...params: unknown[]): Promise<RunResult> => {
-        const client = this.getQueryClient();
-        const result = await client.query(pgSql, params as never[]);
-        const lastInsertRowid = result.rows[0]?.id ?? result.rows[0]?.rowid ?? null;
-        return { changes: result.rowCount ?? 0, lastInsertRowid };
+        return this.withRetry(async () => {
+          const client = this.getQueryClient();
+          const result = await client.query(pgSql, params as never[]);
+          const lastInsertRowid = result.rows[0]?.id ?? result.rows[0]?.rowid ?? null;
+          return { changes: result.rowCount ?? 0, lastInsertRowid };
+        });
       },
 
       get: async (...params: unknown[]): Promise<any> => {
-        const client = this.getQueryClient();
-        const result = await client.query(pgSql, params as never[]);
-        return result.rows[0] ?? null;
+        return this.withRetry(async () => {
+          const client = this.getQueryClient();
+          const result = await client.query(pgSql, params as never[]);
+          return result.rows[0] ?? null;
+        });
       },
 
       all: async (...params: unknown[]): Promise<any[]> => {
-        const client = this.getQueryClient();
-        const result = await client.query(pgSql, params as never[]);
-        return result.rows;
+        return this.withRetry(async () => {
+          const client = this.getQueryClient();
+          const result = await client.query(pgSql, params as never[]);
+          return result.rows;
+        });
       },
 
       values: async (...params: unknown[]): Promise<unknown[][]> => {
-        const client = this.getQueryClient();
-        const result = await client.query(pgSql, params as never[]);
-        return result.rows.map((r) => Object.values(r));
+        return this.withRetry(async () => {
+          const client = this.getQueryClient();
+          const result = await client.query(pgSql, params as never[]);
+          return result.rows.map((r) => Object.values(r));
+        });
       },
     };
   }
 
   async exec(sql: string): Promise<void> {
-    const client = this.getQueryClient();
-    await client.query(sql);
+    return this.withRetry(async () => {
+      const client = this.getQueryClient();
+      await client.query(sql);
+    });
   }
 
   async transaction<T>(fn: () => Promise<T>): Promise<T> {
@@ -231,6 +263,18 @@ export function getDb(config?: DbConfig): Database {
     ...(isNeon ? { prepare: false } : {}),
     // Generous statement timeout for Neon's serverless cold starts
     ...(isNeon ? { statement_timeout: 30000 } : {}),
+    // Prevent stale connections from causing errors — close idle connections
+    // before the server does, and retry on connection failures.
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10000,
+  });
+
+  // Handle pool-level errors (e.g., idle connection terminated by server)
+  pool.on("error", (err) => {
+    // Log but don't crash — the pool will create a new connection on next query
+    console.warn("[database] Pool error (non-fatal):", err.message);
   });
 
   _db = new PgDatabaseImpl(pool);

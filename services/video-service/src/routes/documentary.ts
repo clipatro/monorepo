@@ -164,7 +164,7 @@ export function registerDocumentaryRoutes(app: Hono, _config: AppConfig): void {
         `Rendering with Remotion CLI (composition: ${compositionId})...`,
       );
 
-      const cmd = `npx remotion render "${renderEntryPath}" "${compositionId}" "${outputPath}" --public-dir="${publicDir}" --log=verbose`;
+      const cmd = `bunx remotion render "${renderEntryPath}" "${compositionId}" "${outputPath}" --public-dir="${publicDir}" --log=verbose`;
 
       try {
         const { stdout, stderr } = await execAsync(cmd, {

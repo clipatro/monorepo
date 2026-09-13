@@ -124,6 +124,7 @@ services:
       args:
         SERVICE_DIR: voice-service
         PORT: 3004
+        SKIP_KOKORO_PRECACHE: ${SKIP_KOKORO_PRECACHE:-}
     ports:
       - "3004:3004"
     volumes:

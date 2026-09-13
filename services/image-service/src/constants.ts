@@ -11,9 +11,10 @@ function getScenePlanModel(provider?: string): string {
 
 // === Image generation models ===
 //
-// Two providers are supported:
-//   "gemini" — direct Gemini API (Gemini 3.1 Flash Image / Flash Lite Image)
-//   "fal"    — fal.ai (FLUX.2 klein 4B/9B, Nano Banana 2 via fal)
+// Three providers are supported:
+//   "gemini"  — direct Gemini API (Gemini 3.1 Flash Image / Flash Lite Image)
+//   "fal"     — fal.ai (FLUX.2 klein 4B/9B, Nano Banana 2 via fal)
+//   "runware" — Runware API (Qwen-Image, pure text-to-image with fixed seed)
 //
 // The provider is selected via IMAGE_PROVIDER env var (default: "fal").
 // Each provider has a character-scene model and a non-character-scene model.
@@ -31,33 +32,47 @@ const FAL_NON_CHARACTER_MODEL = "fal-ai/flux-2/klein/4b/edit";
 /** fal.ai fallback model (used when the primary fal model fails). */
 const FAL_FALLBACK_MODEL = "fal-ai/flux-2/klein/4b/edit";
 
+/** Runware models (IMAGE_PROVIDER=runware). Qwen-Image via Runware. */
+const RUNWARE_CHARACTER_MODEL = "runware:108@1"; // Qwen-Image (Alibaba)
+const RUNWARE_NON_CHARACTER_MODEL = "runware:108@1";
+const RUNWARE_FALLBACK_MODEL = "runware:108@1";
+
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 /** Get the active image provider from env (default: "fal"). */
-function getImageProvider(): "gemini" | "fal" {
+function getImageProvider(): "gemini" | "fal" | "runware" {
   const v = process.env.IMAGE_PROVIDER ?? "fal";
-  return v === "gemini" ? "gemini" : "fal";
+  if (v === "gemini") return "gemini";
+  if (v === "runware") return "runware";
+  return "fal";
 }
 
 /** Get the character-scene model for the active or specified provider. */
-function getCharacterSceneModel(provider?: "gemini" | "fal"): string {
+function getCharacterSceneModel(provider?: "gemini" | "fal" | "runware"): string {
   const override = process.env.IMAGE_MODEL_CHARACTER;
   if (override) return override;
   const p = provider ?? getImageProvider();
-  return p === "gemini" ? GEMINI_CHARACTER_MODEL : FAL_CHARACTER_MODEL;
+  if (p === "gemini") return GEMINI_CHARACTER_MODEL;
+  if (p === "runware") return RUNWARE_CHARACTER_MODEL;
+  return FAL_CHARACTER_MODEL;
 }
 
 /** Get the non-character-scene model for the active or specified provider. */
-function getNonCharacterSceneModel(provider?: "gemini" | "fal"): string {
+function getNonCharacterSceneModel(provider?: "gemini" | "fal" | "runware"): string {
   const override = process.env.IMAGE_MODEL_NON_CHARACTER;
   if (override) return override;
   const p = provider ?? getImageProvider();
-  return p === "gemini" ? GEMINI_NON_CHARACTER_MODEL : FAL_NON_CHARACTER_MODEL;
+  if (p === "gemini") return GEMINI_NON_CHARACTER_MODEL;
+  if (p === "runware") return RUNWARE_NON_CHARACTER_MODEL;
+  return FAL_NON_CHARACTER_MODEL;
 }
 
 /** Get the fallback model for the active provider. */
 function getFallbackModel(): string {
-  return getImageProvider() === "gemini" ? GEMINI_NON_CHARACTER_MODEL : FAL_FALLBACK_MODEL;
+  const p = getImageProvider();
+  if (p === "gemini") return GEMINI_NON_CHARACTER_MODEL;
+  if (p === "runware") return RUNWARE_FALLBACK_MODEL;
+  return FAL_FALLBACK_MODEL;
 }
 
 export {
@@ -69,6 +84,9 @@ export {
   FAL_CHARACTER_MODEL,
   FAL_NON_CHARACTER_MODEL,
   FAL_FALLBACK_MODEL,
+  RUNWARE_CHARACTER_MODEL,
+  RUNWARE_NON_CHARACTER_MODEL,
+  RUNWARE_FALLBACK_MODEL,
   API_BASE,
   getImageProvider,
   getCharacterSceneModel,

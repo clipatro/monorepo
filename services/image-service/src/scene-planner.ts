@@ -140,6 +140,37 @@ function buildScenePlanPrompt(
         "- Each image should feel like a different photograph from a skilled photographer, not the same composition re-aimed.",
       ].join("\n").replace(/\$\{channel\.aspect_ratio\}/g, channel.aspect_ratio);
 
+  const isKidsTemplate = channel.video_template === "kids-9x16" || channel.video_template === "kids-16x9";
+
+  const kidsInstructions = isKidsTemplate
+    ? [
+        "",
+        "KIDS TEMPLATE — SPECIAL INSTRUCTIONS:",
+        "- This is a children's storybook video. The tone must be warm, gentle, wonder-filled, and emotionally satisfying — like a bedtime story come to life.",
+        "- Each scene must have a clear image, action, and emotion. Think in visual scenes, not sentences.",
+        "- Narration should sound natural when spoken aloud by a warm storyteller — not a script being read.",
+        "- Include a final 'end card' scene with NO narration (narrationText: \"\") — this is where the subscribe CTA appears.",
+        "",
+        "NO TEXT IN IMAGES (CRITICAL — APPLIES TO ALL SCENES):",
+        "- Every visualEvent must describe ONLY visual elements: characters, objects, environment, lighting, mood, and composition.",
+        "- NEVER include any text, captions, titles, labels, logos, signs, words, letters, numbers, or written content in the visualEvent.",
+        "- Do NOT write things like 'text saying \"Subscribe\"' or 'the words \"The End\"' or 'a sign reading...' in the visualEvent.",
+        "- All subtitles, captions, titles, and text overlays are rendered SEPARATELY by the video system after the image is generated.",
+        "",
+        "SUBTITLE POSITION INTELLIGENCE (CRITICAL):",
+        "For EACH scene, you must decide whether the subtitle/caption should appear at the TOP or BOTTOM of the frame. This decision must be based on the scene's visual composition:",
+        "- Choose \"top\" when the scene's image naturally has the character/subject in the LOWER portion of the frame (e.g. looking up at the sky, standing in a valley, underground, reaching upward). The subtitle goes at top, character stays low.",
+        "- Choose \"bottom\" when the scene's image naturally has the character/subject in the UPPER portion of the frame (e.g. standing tall, looking down from a hill, aerial view, tall trees). The subtitle goes at bottom, character stays high.",
+        "- The goal: the subtitle must NEVER overlap the character's face, body, or important visual elements. Choose the position that keeps the subtitle away from where the character/subject will be.",
+        "- Vary the positions across scenes for visual variety — don't use the same position for every scene unless the story demands it.",
+        "- The first scene (title card) and last scene (end card) should use \"bottom\" since they have special layouts.",
+        "",
+        "EMOTION PER SCENE:",
+        "- Each scene must have an 'emotion' field describing the emotional tone: wonder, excitement, warmth, joy, curiosity, courage, friendship, etc.",
+        "- The emotion is shown as a small label pill on the video — keep it to 1-2 words.",
+      ].join("\n")
+    : "";
+
   const jsonSchemaSection = isFlowHybrid
     ? `{
   "scenes": [
@@ -182,6 +213,30 @@ function buildScenePlanPrompt(
       "characters": [
         { "name": "character name from the story characters", "roleInScene": "protagonist|supporting|antagonist", "poseAndExpression": "specific body language and expression for this character in this scene" }
       ]
+    }
+  ]
+}`
+    : isKidsTemplate
+    ? `{
+  "scenes": [
+    {
+      "order": 1,
+      "storyPurpose": "one precise narrative job",
+      "narrationText": "final voice-over text for this scene",
+      "visualEvent": "one decisive photographable instant",
+      "characterRole": "one allowed character role",
+      "poseAndExpression": "specific observable body language and restrained expression, or N/A",
+      "environment": "specific setting with continuity details",
+      "cameraFraming": "shot size, angle, natural lens perspective, and subject placement",
+      "lightingAndMood": "physical light source, time of day, color temperature, and restrained mood",
+      "expectedDurationSeconds": 0,
+      "imageRequirement": "one allowed image requirement",
+      "sourceClaimIds": ["only valid claim IDs used in this scene"],
+      "characters": [
+        { "name": "character name from the story characters", "roleInScene": "protagonist|supporting|antagonist", "poseAndExpression": "specific body language and expression for this character in this scene" }
+      ],
+      "subtitlePosition": "top or bottom — where the subtitle should appear, chosen so it never overlaps the character",
+      "emotion": "the emotional tone of this scene (e.g. 'wonder', 'excitement', 'warmth', 'joy', 'curiosity', 'courage', 'friendship')"
     }
   ]
 }`
@@ -265,6 +320,7 @@ NARRATION:
 
 VISUAL DIRECTION:
 ${visualDirectionSection}
+${kidsInstructions}
 
 CHARACTER USE:
 ${characterRule}

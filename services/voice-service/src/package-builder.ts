@@ -86,12 +86,14 @@ function buildTimelineCsv(
 		imageStartMs: number;
 		imageEndMs: number;
 		narrationText: string;
+		subtitlePosition?: string | null;
+		emotion?: string | null;
 	}>,
 	imageAssets: Array<{ sceneId: string; filePath: string }>,
 ): string {
 	const imageMap = new Map(imageAssets.map((a) => [a.sceneId, a.filePath]));
 	const lines: string[] = [
-		"scene_order,scene_id,narration_start_ms,narration_end_ms,narration_start_sec,narration_end_sec,image_start_ms,image_end_ms,image_start_sec,image_end_sec,image_duration_sec,image_file,caption_text",
+		"scene_order,scene_id,narration_start_ms,narration_end_ms,narration_start_sec,narration_end_sec,image_start_ms,image_end_ms,image_start_sec,image_end_sec,image_duration_sec,image_file,caption_text,subtitle_position,emotion",
 	];
 
 	for (const t of timings) {
@@ -105,7 +107,8 @@ function buildTimelineCsv(
 				`${(t.narrationStartMs / 1000).toFixed(3)},${(t.narrationEndMs / 1000).toFixed(3)},` +
 				`${t.imageStartMs},${t.imageEndMs},` +
 				`${(t.imageStartMs / 1000).toFixed(3)},${(t.imageEndMs / 1000).toFixed(3)},` +
-				`${imageDurSec},${imageBasename},${escapedText}`,
+				`${imageDurSec},${imageBasename},${escapedText},` +
+				`${t.subtitlePosition ?? ""},${t.emotion ?? ""}`,
 		);
 	}
 

@@ -67,6 +67,7 @@ interface ChannelForm {
 	imageProvider: string;
 	ttsProvider: string;
 	ttsVoiceId: string;
+	voiceoverSpeed: number;
 	aspectRatio: string;
 	approvalEnabled: boolean;
 	llmConfig: LlmConfig;
@@ -92,6 +93,7 @@ const emptyForm: ChannelForm = {
 	imageProvider: "fal",
 	ttsProvider: "kokoro",
 	ttsVoiceId: "af_heart",
+	voiceoverSpeed: 1.0,
 	aspectRatio: "9:16",
 	approvalEnabled: true,
 	llmConfig: {},
@@ -248,6 +250,7 @@ export function ChannelEditSheet({
 				imageProvider: ch.imageProvider,
 				ttsProvider: ch.ttsProvider,
 				ttsVoiceId: ch.ttsVoiceId,
+				voiceoverSpeed: ch.voiceoverSpeed ?? 1.0,
 				aspectRatio: ch.aspectRatio ?? "9:16",
 				approvalEnabled: ch.approvalEnabled ?? true,
 				llmConfig: ch.llmConfig ?? {},
@@ -783,7 +786,7 @@ export function ChannelEditSheet({
 						</div>
 
 						{/* TTS */}
-						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+						<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
 							<div className="space-y-2">
 								<Label>TTS Provider</Label>
 								<Select value={form.ttsProvider} onValueChange={onTtsProviderChange}>
@@ -802,6 +805,18 @@ export function ChannelEditSheet({
 										{ttsVoices.map((v) => <SelectItem key={v.id} value={v.id}>{v.label}</SelectItem>)}
 									</SelectContent>
 								</Select>
+							</div>
+							<div className="space-y-2">
+								<Label>Voiceover Speed</Label>
+								<Input
+									type="number"
+									step={0.05}
+									min={0.5}
+									max={2.0}
+									value={form.voiceoverSpeed}
+									onChange={(e) => setForm({ ...form, voiceoverSpeed: Math.max(0.5, Math.min(2.0, Number(e.target.value) || 1.0)) })}
+								/>
+								<p className="text-xs text-muted-foreground">1.0 = normal speed. Range: 0.5-2.0</p>
 							</div>
 						</div>
 

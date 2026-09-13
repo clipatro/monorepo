@@ -4,7 +4,94 @@ import type {
   CharacterReferenceRow,
 } from "@automation/database";
 import { getCharacterSceneModel, getNonCharacterSceneModel } from "./constants";
+import { buildKidsImagePrompt } from "./kids-image";
 import type { CompiledPrompt } from "./types";
+
+// === Text-stripping safeguard (reusable, story-agnostic) ===
+//
+// Even with explicit instructions, LLMs sometimes include text descriptions
+// in image prompts (e.g. "text saying 'Subscribe'" or "the words 'The End'").
+// This function strips any text-related descriptions from the imagePrompt
+// BEFORE it is sent to the image model, ensuring the model never receives
+// instructions to generate text.
+
+/**
+ * Strip text-related descriptions from an image prompt so the image model
+ * never receives instructions to generate text inside the artwork.
+ * Returns a cleaned prompt that describes only visual elements.
+ */
+function stripTextFromPrompt(prompt: string): string {
+  let cleaned = prompt;
+
+  // ── Phase 1: Remove full text-description phrases ──
+  const textPhrasePatterns = [
+    // "the text '...' is written in a ... font" (full phrase, most common)
+    /the\s+text\s+['"][^'"]*['"]\s+is\s+written\s+in\s+a\s+[\w\s,]*font/gi,
+    // "the text '...' is written"
+    /the\s+text\s+['"][^'"]*['"]\s+is\s+written/gi,
+    // "text saying '...'" or "text saying \"...\""
+    /text\s+saying\s+['"][^'"]*['"]/gi,
+    // "the words '...'" or "the words \"...\""
+    /the\s+words\s+['"][^'"]*['"]/gi,
+    // "a sign reading '...'" or "sign reading \"...\""
+    /(?:a\s+)?sign\s+reading\s+['"][^'"]*['"]/gi,
+    // "text '...'" or "text \"...\""
+    /text\s+['"][^'"]*['"]/gi,
+    // "caption '...'" or "caption \"...\""
+    /caption\s+['"][^'"]*['"]/gi,
+    // "title '...'" or "title \"...\""
+    /title\s+['"][^'"]*['"]/gi,
+    // "label '...'" or "label \"...\""
+    /label\s+['"][^'"]*['"]/gi,
+    // "writing '...'" or "writing \"...\""
+    /writing\s+['"][^'"]*['"]/gi,
+    // "written in a ... font" or "written in ... font" (standalone)
+    /written\s+in\s+a\s+[\w\s,]*font/gi,
+    /written\s+in\s+[\w\s,]*font/gi,
+    // "in a playful, rounded font" (standalone font descriptions)
+    /in\s+a\s+[\w\s,]*font/gi,
+    // "is written" (orphaned remnant after text removal)
+    /is\s+written/gi,
+  ];
+
+  for (const pattern of textPhrasePatterns) {
+    cleaned = cleaned.replace(pattern, "");
+  }
+
+  // ── Phase 2: Remove subscribe/channel-name/subtitle references ──
+  // These are common in end-card prompts and should not appear as image content.
+  // Also remove "subtitle at top/bottom" phrases — mentioning "subtitle" in
+  // the image prompt can cause the model to generate subtitle text in the image.
+  cleaned = cleaned.replace(/\bsubscribe\s+for\s+more\b[^.]*\./gi, "");
+  cleaned = cleaned.replace(/\bsubscribe\s+button\b/gi, "decorative button shape");
+  cleaned = cleaned.replace(/\bchannel\s+name\b/gi, "decorative text-free area");
+  cleaned = cleaned.replace(/,\s*so\s+subtitle\s+at\s+(?:top|bottom)\b/gi, "");
+  cleaned = cleaned.replace(/\bsubtitle\s+at\s+(?:top|bottom)\b/gi, "");
+  cleaned = cleaned.replace(/\bsubtitle\s+(?:at\s+)?(?:top|bottom)\b/gi, "");
+
+  // ── Phase 3: Clean up remnants and awkward phrasing ──
+  // Remove orphaned "the" that was left before a removed text phrase
+  cleaned = cleaned.replace(/\bthe\s+is\s+/gi, "");
+  // Remove "Below the star," if it's now followed by nothing meaningful
+  cleaned = cleaned.replace(/,\s*below\s+the\s+star\s*,\s*/gi, ". ");
+  cleaned = cleaned.replace(/\bbelow\s+the\s+star\s*,\s*$/gi, "");
+
+  // General cleanup: double spaces, orphaned commas, trailing connectors
+  cleaned = cleaned
+    .replace(/\s+/g, " ")
+    .replace(/\s+,/g, ",")
+    .replace(/,\s*,/g, ",")
+    .replace(/,\s*\./g, ".")
+    .replace(/\s+\./g, ".")
+    .replace(/\.\s*\./g, ".")
+    .trim();
+  // Fix sentences that might start with a connector after removal
+  cleaned = cleaned.replace(/^\s*and\s+/i, "").replace(/^\s*but\s+/i, "");
+  // Fix orphaned commas at the start
+  cleaned = cleaned.replace(/^\s*,\s*/g, "");
+
+  return cleaned;
+}
 
 // === Constants ===
 
@@ -130,6 +217,11 @@ async function compilePrompt(
     ? (characterModelOverride ?? getCharacterSceneModel())
     : (nonCharacterModelOverride ?? getNonCharacterSceneModel());
 
+  // Kids templates use a dedicated prompt path (ported from the s23 spike):
+  // locked character identity + 3D-animated-movie style + text-safe
+  // composition instructions derived from the scene's selected component.
+  const isKidsTemplate = channel.video_template === "kids-9x16" || channel.video_template === "kids-16x9";
+
   const [aw, ah] = aspectRatio.split(":").map(Number);
   const orientation = aw && ah && ah > aw ? "Vertical" : aw && ah && aw > ah ? "Horizontal" : "Square";
   const parts: string[] = [];
@@ -226,6 +318,39 @@ CANONICAL WARDROBE: The wardrobe described above is this character's canonical o
 If a previous scene image is provided as the last reference, use it for visual continuity of lighting, environment, and composition — but maintain this character's identity from their portrait reference.`);
   } else {
     parts.push("SUBJECT RULE: This is a non-character scene. Do not introduce any recurring character. Do not add a prominent person unless the visual event explicitly requires one; anonymous background people must remain incidental and natural.");
+  }
+
+  // === Kids template: dedicated prompt path (ported from the s23 spike) ===
+  // Produces the spike's proven prompt structure — art-style prefix with the
+  // character's lockedIdentity verbatim, stripped scene description, emotion,
+  // and text-safe composition instructions derived from the component that
+  // will render the scene. Runware is pure text-to-image: no reference IDs.
+  if (isKidsTemplate) {
+    const lastOrderRow = await db
+      .prepare('SELECT MAX("order") as m FROM scenes WHERE story_id = ?')
+      .get(scene.story_id) as { m: number | null } | null;
+    const lastOrder = lastOrderRow?.m ?? scene.order;
+    const bible = characterInfos[0]?.bible ?? null;
+    const characterIdentity = bible ? buildCharacterIdentity(bible) : null;
+    const cleanedVisualEvent = stripTextFromPrompt(scene.visual_event);
+    if (cleanedVisualEvent !== scene.visual_event) {
+      console.log(`[image-service] Scene ${scene.id}: stripped text descriptions from visual event`);
+    }
+    const kids = buildKidsImagePrompt({
+      channel,
+      scene,
+      lastOrder,
+      bible,
+      characterIdentity,
+      cleanedVisualEvent,
+    });
+    return {
+      prompt: kids.prompt,
+      isCharacterScene,
+      model,
+      referenceIds: [],
+      negativePrompt: kids.negativePrompt,
+    };
   }
 
   // 1. Provider instruction — adapt to the character's visual style

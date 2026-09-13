@@ -16,6 +16,7 @@ import { packageSchema } from "../schemas";
 import { ensureDir } from "../utils";
 import { generateSrt } from "../captions";
 import { buildManifest, buildTimelineCsv, createZip } from "../package-builder";
+import { getStorage, storageKey, pathToKey, readFileAny, backupToR2, backupBufferToR2 } from "../storage";
 
 // === POST /package — assemble the full export package ===
 
@@ -44,14 +45,14 @@ export function registerPackageRoutes(app: Hono, config: AppConfig): void {
 		if (!voiceover)
 			return c.json({ error: "No voiceover found for this run" }, 404);
 
-		// Get timings
+		// Get timings (join scenes for subtitle_position + emotion for kids templates)
 		const timings = await db
 			.prepare(`
-      SELECT t.*, s."order" as scene_order
+      SELECT t.*, s."order" as scene_order, s.subtitle_position, s.emotion
       FROM timings t JOIN scenes s ON t.scene_id = s.id
       WHERE t.voiceover_id = ? ORDER BY s."order" ASC
     `)
-			.all(voiceover.id) as Array<TimingRow & { scene_order: number }>;
+			.all(voiceover.id) as Array<TimingRow & { scene_order: number; subtitle_position: string | null; emotion: string | null }>;
 
 		if (timings.length === 0)
 			return c.json({ error: "No timing records found" }, 404);
@@ -107,9 +108,11 @@ export function registerPackageRoutes(app: Hono, config: AppConfig): void {
 
 		// Copy voiceover (graceful handling if file is missing)
 		const voiceoverPkgPath = join(pkgDir, "voiceover.wav");
-		if (existsSync(voiceover.master_path)) {
-			const voiceoverData = await readFile(voiceover.master_path);
+		const voiceoverData = await readFileAny(voiceover.master_path, config);
+		if (voiceoverData) {
 			await writeFile(voiceoverPkgPath, voiceoverData);
+			// Fire-and-forget R2 backup (non-blocking)
+			backupBufferToR2(storageKey("channels", channel.id, "runs", runId, "export", "voiceover.wav"), voiceoverData, "audio/wav");
 		} else {
 			missingArtifacts.push("voiceover.wav");
 			warnings.push(`Voiceover file missing: ${voiceover.master_path}`);
@@ -122,10 +125,12 @@ export function registerPackageRoutes(app: Hono, config: AppConfig): void {
 			const order = timing?.scene_order ?? 0;
 			const paddedName = `scene-${String(order).padStart(2, "0")}${extname(img.filePath)}`;
 			const destPath = join(pkgDir, paddedName);
-			if (existsSync(img.filePath)) {
-				const data = await readFile(img.filePath);
+			const data = await readFileAny(img.filePath, config);
+			if (data) {
 				await writeFile(destPath, data);
 				imageFiles.push({ name: paddedName, path: destPath });
+				// Fire-and-forget R2 backup (non-blocking)
+				backupBufferToR2(storageKey("channels", channel.id, "runs", runId, "export", paddedName), data);
 			} else {
 				missingArtifacts.push(paddedName);
 				warnings.push(`Image missing: ${img.filePath}`);
@@ -139,15 +144,17 @@ export function registerPackageRoutes(app: Hono, config: AppConfig): void {
 			durationSec: number;
 		} | null = null;
 		if (gameplayAsset) {
-			if (existsSync(gameplayAsset.file_path)) {
+			const gameplayData = await readFileAny(gameplayAsset.file_path, config);
+			if (gameplayData) {
 				const gameplayPkgPath = join(pkgDir, "gameplay-background.mp4");
-				const data = await readFile(gameplayAsset.file_path);
-				await writeFile(gameplayPkgPath, data);
+				await writeFile(gameplayPkgPath, gameplayData);
 				gameplayInfo = {
 					sourceFile: basename(gameplayAsset.file_path),
 					startSec: 0,
 					durationSec: voiceover.duration_ms / 1000,
 				};
+				// Fire-and-forget R2 backup (non-blocking)
+				backupBufferToR2(storageKey("channels", channel.id, "runs", runId, "export", "gameplay-background.mp4"), gameplayData, "video/mp4");
 			} else {
 				missingArtifacts.push("gameplay-background.mp4");
 				warnings.push(`Gameplay video missing: ${gameplayAsset.file_path}`);
@@ -166,6 +173,8 @@ export function registerPackageRoutes(app: Hono, config: AppConfig): void {
 		);
 		const srtPath = join(pkgDir, "captions.srt");
 		await writeFile(srtPath, srtContent, "utf-8");
+		// Fire-and-forget R2 backup (non-blocking)
+		backupBufferToR2(storageKey("channels", channel.id, "runs", runId, "export", "captions.srt"), srtContent, "text/plain");
 
 		// Generate timeline CSV (with image display windows)
 		const csvContent = buildTimelineCsv(
@@ -177,11 +186,15 @@ export function registerPackageRoutes(app: Hono, config: AppConfig): void {
 				imageStartMs: t.recommended_image_start_ms,
 				imageEndMs: t.recommended_image_end_ms,
 				narrationText: t.narration_text,
+				subtitlePosition: t.subtitle_position,
+				emotion: t.emotion,
 			})),
 			imageAssets,
 		);
 		const csvPath = join(pkgDir, "scene-timeline.csv");
 		await writeFile(csvPath, csvContent, "utf-8");
+		// Fire-and-forget R2 backup (non-blocking)
+		backupBufferToR2(storageKey("channels", channel.id, "runs", runId, "export", "scene-timeline.csv"), csvContent, "text/csv");
 
 		// Generate manifest (with image timeline)
 		const manifest = buildManifest({
@@ -210,7 +223,10 @@ export function registerPackageRoutes(app: Hono, config: AppConfig): void {
 			voiceId: voiceover.voice_id,
 		});
 		const manifestPath = join(pkgDir, "manifest.json");
-		await writeFile(manifestPath, JSON.stringify(manifest, null, 2), "utf-8");
+		const manifestJson = JSON.stringify(manifest, null, 2);
+		await writeFile(manifestPath, manifestJson, "utf-8");
+		// Fire-and-forget R2 backup (non-blocking)
+		backupBufferToR2(storageKey("channels", channel.id, "runs", runId, "export", "manifest.json"), manifestJson, "application/json");
 
 		// Create ZIP archive — only include files that exist
 		const zipPath = join(
@@ -238,6 +254,9 @@ export function registerPackageRoutes(app: Hono, config: AppConfig): void {
 		}
 
 		await createZip(filesToZip, zipPath);
+
+		// Fire-and-forget R2 backup (non-blocking)
+		backupToR2(zipPath, storageKey("channels", channel.id, "runs", runId, "export-package.zip"), "application/zip");
 
 		return c.json(
 			{
@@ -274,18 +293,35 @@ export function registerPackageRoutes(app: Hono, config: AppConfig): void {
 			runId,
 			"export-package.zip",
 		);
-		if (!existsSync(zipPath))
-			return c.json(
-				{ error: "Export package not found — assemble it first" },
-				404,
-			);
+		// Try local filesystem first, then R2
+		if (existsSync(zipPath)) {
+			const data = await readFile(zipPath);
+			return new Response(data as BodyInit, {
+				headers: {
+					"Content-Type": "application/zip",
+					"Content-Disposition": `attachment; filename="export-package-${runId.slice(0, 8)}.zip"`,
+				},
+			});
+		}
 
-		const data = await readFile(zipPath);
-		return new Response(data, {
-			headers: {
-				"Content-Type": "application/zip",
-				"Content-Disposition": `attachment; filename="export-package-${runId.slice(0, 8)}.zip"`,
-			},
-		});
+		// Try R2 if enabled
+		const storage = getStorage();
+		if (storage.backend === "r2") {
+			const key = storageKey("channels", run.channel_id, "runs", runId, "export-package.zip");
+			if (await storage.exists(key)) {
+				const data = await storage.get(key);
+				return new Response(data as BodyInit, {
+					headers: {
+						"Content-Type": "application/zip",
+						"Content-Disposition": `attachment; filename="export-package-${runId.slice(0, 8)}.zip"`,
+					},
+				});
+			}
+		}
+
+		return c.json(
+			{ error: "Export package not found — assemble it first" },
+			404,
+		);
 	});
 }

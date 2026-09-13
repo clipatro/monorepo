@@ -42,6 +42,7 @@ export function parseChannelRow(
     flowProjectUrl: row.flow_project_url ?? null,
     flowCdpEndpoint: row.flow_cdp_endpoint ?? null,
     flowInterRequestDelayMs: row.flow_inter_request_delay_ms ?? 5000,
+    voiceoverSpeed: row.voiceover_speed ?? 1.0,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

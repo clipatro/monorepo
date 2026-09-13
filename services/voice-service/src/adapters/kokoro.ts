@@ -36,9 +36,14 @@ async function generateWithKokoro(
 	text: string,
 	outputPath: string,
 	voiceId: string = KOKORO_VOICE,
+	voiceoverSpeed: number = 1.0,
 ): Promise<void> {
 	const tts = await getKokoro();
-	const audio = await tts.generate(text, { voice: voiceId });
+	// Kokoro supports a speed option natively (1.0 = normal, 1.1 = 10% faster)
+	const audio = await tts.generate(text, {
+		voice: voiceId,
+		...(Math.abs(voiceoverSpeed - 1.0) >= 0.01 ? { speed: voiceoverSpeed } : {}),
+	});
 	audio.save(outputPath);
 }
 

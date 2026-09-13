@@ -29,11 +29,17 @@ export interface AppConfig {
    */
   falApiKey: string | null;
   /**
-   * Image generation provider: "gemini" (default, direct Gemini API) or "fal"
-   * (fal.ai — FLUX.2 klein models, Nano Banana via fal). Switches the image
-   * adapter used by image-service. Default: "fal" (FLUX.2 klein 9B).
+   * Runware API key for image generation (Qwen-Image via Runware).
+   * Never log this. Required when imageProvider === "runware".
    */
-  imageProvider: "gemini" | "fal";
+  runwareApiKey: string | null;
+  /**
+   * Image generation provider: "gemini" (default, direct Gemini API), "fal"
+   * (fal.ai — FLUX.2 klein models, Nano Banana via fal), or "runware"
+   * (Runware — Qwen-Image, pure text-to-image with fixed seed). Switches the
+   * image adapter used by image-service. Default: "fal" (FLUX.2 klein 9B).
+   */
+  imageProvider: "gemini" | "fal" | "runware";
   /**
    * Default LLM provider for text generation: "gemini" or "deepseek".
    * Services use this to select which LLM client to instantiate.
@@ -62,6 +68,21 @@ export interface AppConfig {
   dryRun: boolean;
   /** Path to dry-run placeholder media (images, video clips). */
   dryRunMediaPath: string;
+  /**
+   * Storage backend: "local" (filesystem, default) or "r2" (Cloudflare R2).
+   * When "r2", all artifact storage goes through the R2 S3-compatible API.
+   */
+  storageBackend: "local" | "r2";
+  /** R2 bucket name (required when storageBackend === "r2"). */
+  r2Bucket: string | null;
+  /** R2 S3-compatible endpoint URL. */
+  r2Endpoint: string | null;
+  /** R2 access key ID (never log this). */
+  r2AccessKeyId: string | null;
+  /** R2 secret access key (never log this). */
+  r2SecretAccessKey: string | null;
+  /** R2 public URL (optional, for public bucket access). */
+  r2PublicUrl: string | null;
   /** Other services' base URLs (for inter-service calls). */
   services: ServiceUrls;
 }
@@ -118,7 +139,8 @@ export function loadConfig(serviceName: string): AppConfig {
     geminiProjectId: process.env.GEMINI_PROJECT_ID ?? null,
     deepseekApiKey: process.env.DEEPSEEK_API_KEY ?? null,
     falApiKey: process.env.FAL_KEY ?? null,
-    imageProvider: (str("IMAGE_PROVIDER", "fal") as "gemini" | "fal"),
+    runwareApiKey: process.env.RUNWARE_API_KEY ?? null,
+    imageProvider: (str("IMAGE_PROVIDER", "fal") as "gemini" | "fal" | "runware"),
     llmProvider: (str("LLM_PROVIDER", "gemini") as "gemini" | "deepseek"),
     costBudgetPerRun: num("COST_BUDGET_PER_RUN", 2.0),
     costBudgetPerDay: num("COST_BUDGET_PER_DAY", 10.0),
@@ -127,6 +149,12 @@ export function loadConfig(serviceName: string): AppConfig {
     ablyRootKey: process.env.ABLY_ROOT_KEY ?? null,
     dryRun: bool("DRY_RUN", false) || bool("GEMINI_DRY_RUN", false),
     dryRunMediaPath: str("DRY_RUN_MEDIA_PATH", "./media/dry-run"),
+    storageBackend: (str("STORAGE_BACKEND", "local") as "local" | "r2"),
+    r2Bucket: process.env.R2_BUCKET ?? null,
+    r2Endpoint: process.env.R2_ENDPOINT ?? null,
+    r2AccessKeyId: process.env.R2_ACCESS_KEY_ID ?? null,
+    r2SecretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? null,
+    r2PublicUrl: process.env.R2_PUBLIC_URL ?? null,
     services: {
       apiGateway: str("API_GATEWAY_URL", defaultServiceUrls.apiGateway),
       storyService: str("STORY_SERVICE_URL", defaultServiceUrls.storyService),
@@ -166,6 +194,7 @@ export function redactedConfig(config: AppConfig): Record<string, unknown> {
     geminiProjectId: config.geminiProjectId ? "***REDACTED***" : null,
     deepseekApiKey: config.deepseekApiKey ? "***REDACTED***" : null,
     falApiKey: config.falApiKey ? "***REDACTED***" : null,
+    runwareApiKey: config.runwareApiKey ? "***REDACTED***" : null,
     imageProvider: config.imageProvider,
     llmProvider: config.llmProvider,
     costBudgetPerRun: config.costBudgetPerRun,
@@ -175,6 +204,12 @@ export function redactedConfig(config: AppConfig): Record<string, unknown> {
     ablyRootKey: config.ablyRootKey ? "***REDACTED***" : null,
     dryRun: config.dryRun,
     dryRunMediaPath: config.dryRunMediaPath,
+    storageBackend: config.storageBackend,
+    r2Bucket: config.r2Bucket,
+    r2Endpoint: config.r2Endpoint,
+    r2AccessKeyId: config.r2AccessKeyId ? "***REDACTED***" : null,
+    r2SecretAccessKey: config.r2SecretAccessKey ? "***REDACTED***" : null,
+    r2PublicUrl: config.r2PublicUrl,
     services: config.services,
   };
 }

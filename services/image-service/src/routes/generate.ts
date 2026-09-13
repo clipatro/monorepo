@@ -10,6 +10,12 @@ import { generateSchema, generateBatchSchema } from "../schemas";
 import { compilePrompt } from "../prompt-compiler";
 import { generateWithGeminiFlashImage } from "../adapters/gemini-flash-image";
 import { generateWithFal } from "../adapters/fal-image";
+import { generateWithRunware } from "../adapters/runware";
+import {
+  KIDS_IMAGE_WIDTH,
+  KIDS_IMAGE_HEIGHT,
+  KIDS_IMAGE_QUALITY,
+} from "../kids-image";
 import { uuid, sha256, validateImage, saveImageAsset } from "../utils";
 import {
   getCharacterSceneModel,
@@ -43,7 +49,7 @@ export function registerGenerateRoutes(app: Hono, config: AppConfig): void {
 
     // Compile the prompt — or use the custom prompt override if provided
     // Use per-request overrides if provided, otherwise fall back to env vars / defaults
-    const imageProvider = reqImageProvider === "gemini" ? "gemini" : (reqImageProvider === "fal" ? "fal" : getImageProvider());
+    const imageProvider = reqImageProvider === "gemini" ? "gemini" : (reqImageProvider === "runware" ? "runware" : (reqImageProvider === "fal" ? "fal" : getImageProvider()));
     const characterModel = imageModelCharacter ?? getCharacterSceneModel(imageProvider);
     const nonCharacterModel = imageModelNonCharacter ?? getNonCharacterSceneModel(imageProvider);
     const compiled = customPrompt && customPrompt.trim().length > 0
@@ -54,15 +60,32 @@ export function registerGenerateRoutes(app: Hono, config: AppConfig): void {
             ? characterModel
             : nonCharacterModel,
           referenceIds: [] as string[],
+          negativePrompt: undefined as string | undefined,
         }
       : await compilePrompt(scene, channel, characterVersion, aspectRatio, characterModel, nonCharacterModel);
+
+    // Kids template + Runware: pure text-to-image (fixed seed + locked
+    // identity in the prompt) — reference images are ignored by the adapter,
+    // and generation uses the spike's 1024x1536 / quality-95 / negative
+    // prompt settings.
+    const isKidsTemplate =
+      channel.video_template === "kids-9x16" || channel.video_template === "kids-16x9";
+    const runwareKidsOpts =
+      isKidsTemplate && imageProvider === "runware"
+        ? {
+            negativePrompt: compiled.negativePrompt,
+            width: KIDS_IMAGE_WIDTH,
+            height: KIDS_IMAGE_HEIGHT,
+            outputQuality: KIDS_IMAGE_QUALITY,
+          }
+        : undefined;
 
     // Load reference images for character scenes.
     // The prompt compiler allocates reference slots: 1 portrait per character
     // (up to 3) + spare slots for extra portraits of the first character.
     // We load exactly the refs in compiled.referenceIds — NOT all refs of one version.
     const references: Array<{ buffer: Buffer; mimeType: string }> = [];
-    if (compiled.isCharacterScene && compiled.referenceIds.length > 0) {
+    if (compiled.isCharacterScene && compiled.referenceIds.length > 0 && !runwareKidsOpts) {
       // Load specific reference images by ID (in the order the compiler chose)
       const placeholders = compiled.referenceIds.map(() => "?").join(",");
       const refs = await db.prepare(
@@ -85,7 +108,8 @@ export function registerGenerateRoutes(app: Hono, config: AppConfig): void {
     // Append the previous scene's generated image as the last reference
     // for visual continuity (lighting, environment, composition).
     // This is the final slot in the 4-reference budget.
-    if (prevSceneImagePath) {
+    // Skipped for kids+Runware — the adapter is pure text-to-image.
+    if (prevSceneImagePath && !runwareKidsOpts) {
       try {
         const buffer = await Bun.file(prevSceneImagePath).arrayBuffer();
         references.push({ buffer: Buffer.from(buffer), mimeType: "image/jpeg" });
@@ -126,6 +150,18 @@ export function registerGenerateRoutes(app: Hono, config: AppConfig): void {
             stepId,
             aspectRatio,
           );
+        } else if (imageProvider === "runware") {
+          result = await generateWithRunware(
+            config.runwareApiKey ?? "",
+            compiled.model,
+            compiled.prompt,
+            references,
+            temperature,
+            runId,
+            stepId,
+            aspectRatio,
+            runwareKidsOpts,
+          );
         } else {
           result = await generateWithGeminiFlashImage(
             config.geminiApiKey ?? "",
@@ -151,6 +187,18 @@ export function registerGenerateRoutes(app: Hono, config: AppConfig): void {
             runId,
             stepId,
             aspectRatio,
+          );
+        } else if (imageProvider === "runware") {
+          result = await generateWithRunware(
+            config.runwareApiKey ?? "",
+            fallbackModel,
+            compiled.prompt,
+            [],
+            temperature,
+            runId,
+            stepId,
+            aspectRatio,
+            runwareKidsOpts,
           );
         } else {
           result = await generateWithGeminiFlashImage(

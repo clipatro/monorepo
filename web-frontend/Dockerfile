@@ -21,6 +21,7 @@ COPY packages/deepseek-client/package.json ./packages/deepseek-client/
 COPY packages/llm-provider/package.json  ./packages/llm-provider/
 COPY packages/remotion-templates/package.json ./packages/remotion-templates/
 COPY packages/server/package.json        ./packages/server/
+COPY packages/storage/package.json       ./packages/storage/
 COPY packages/workflow-engine/package.json ./packages/workflow-engine/
 COPY services/api-gateway/package.json          ./services/api-gateway/
 COPY services/embedding-service/package.json    ./services/embedding-service/

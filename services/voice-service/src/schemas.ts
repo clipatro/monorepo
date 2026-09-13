@@ -16,6 +16,8 @@ const synthesizeSchema = z.object({
 		.default(DEFAULT_INTER_SEGMENT_PAUSE_MS),
 	/** When true, return only a cost estimate without synthesizing audio. */
 	estimateOnly: z.boolean().default(false),
+	/** Voiceover playback speed (1.0 = normal, 1.1 = 10% faster). */
+	voiceoverSpeed: z.number().min(0.5).max(2.0).default(1.0),
 });
 
 const gameplayCutSchema = z.object({

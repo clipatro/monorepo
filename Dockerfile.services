@@ -23,6 +23,7 @@ COPY packages/deepseek-client/package.json ./packages/deepseek-client/
 COPY packages/llm-provider/package.json  ./packages/llm-provider/
 COPY packages/remotion-templates/package.json ./packages/remotion-templates/
 COPY packages/server/package.json        ./packages/server/
+COPY packages/storage/package.json       ./packages/storage/
 COPY packages/workflow-engine/package.json ./packages/workflow-engine/
 COPY services/api-gateway/package.json          ./services/api-gateway/
 COPY services/embedding-service/package.json    ./services/embedding-service/
@@ -48,7 +49,22 @@ FROM base AS development
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     zip \
+    unzip \
     ca-certificates \
+    # Chrome headless dependencies (for Remotion rendering)
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
   && rm -rf /var/lib/apt/lists/*
 
 # Root dependencies and config are copied separately for layer reuse.
@@ -61,9 +77,10 @@ COPY package.json bunfig.toml tsconfig.json ./
 # The script and its constants dependency are copied before the full source so
 # unrelated source changes do not invalidate the model cache layer.
 ARG SERVICE_DIR
+ARG SKIP_KOKORO_PRECACHE
 COPY services/voice-service/scripts/precache-kokoro.ts ./services/voice-service/scripts/precache-kokoro.ts
 COPY services/voice-service/src/constants.ts ./services/voice-service/src/constants.ts
-RUN if [ "$SERVICE_DIR" = "voice-service" ]; then \
+RUN if [ "$SERVICE_DIR" = "voice-service" ] && [ -z "$SKIP_KOKORO_PRECACHE" ]; then \
       bun run services/voice-service/scripts/precache-kokoro.ts; \
     fi
 
