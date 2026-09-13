@@ -60,6 +60,8 @@ export interface ChannelConfig {
   flowCdpEndpoint: string | null;
   /** D021: Inter-request delay in ms for serialized Flow generation (default 5000). */
   flowInterRequestDelayMs: number | null;
+  /** Voiceover playback speed (1.0 = normal, 1.1 = 10% faster). */
+  voiceoverSpeed: number;
 }
 
 /**

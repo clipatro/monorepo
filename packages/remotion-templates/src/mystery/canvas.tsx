@@ -1,21 +1,22 @@
 /**
  * MysteryCanvas — the core frame for mystery namespace components.
  *
- * REVISED design language (v2 — feed-optimized):
- * - EVERY scene has a blurred background image for visual depth (no pure black)
- * - Bold, high-contrast captions (Hormozi-style: thick stroke, large font)
- * - Ken Burns zoom on all images (100% → 115% slow zoom for cinematic feel)
- * - Fast entrance (content visible in 0.3s, not 0.7s)
- * - Dark gradient overlay on top of blurred BG for text readability
- * - Accent color used for highlights and key elements, not just a thin line
- * - Text positioned in safe zone (60-70% down, away from platform UI)
- *
- * The mystery comes from visuals + suspense, not from empty space.
+ * REVISED design language (v4 — bottom panel layout + Playfair Display):
+ * - SPLIT LAYOUT: image fills the top ~58% of the frame (fully visible,
+ *   Ken Burns zoom), text sits on a SOLID dark panel at the bottom ~42%.
+ *   Text is never overlaid on the image — both are clearly visible.
+ * - Soft gradient blends the image bottom into the panel top (no hard line).
+ * - Playfair Display (loaded via @remotion/google-fonts) for all content
+ *   text — no Times New Roman fallback. IBM Plex Mono for labels.
+ * - One accent element per frame: a thin line at the panel top edge.
+ * - Quiet cubic-ease entrances (14 frames). No springs, no bounces.
+ * - The mystery comes from restraint and atmosphere, not decoration.
  */
 
 import React from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { ThemeConfig } from "../themes/index.ts";
+import { PLAYFAIR_DISPLAY, IBM_PLEX_MONO } from "./fonts.ts";
 
 export interface MysteryTokens {
   accent: string;
@@ -46,10 +47,10 @@ export const getMysteryTokens = (theme?: ThemeConfig): MysteryTokens => ({
   surface: theme?.bg?.surface ?? "#111316",
   elevated: theme?.bg?.elevated ?? "#1a1d21",
   border: theme?.glass?.border ?? "rgba(255,255,255,0.12)",
-  display: theme?.fonts?.display ?? "'League Gothic', 'Arial Narrow', sans-serif",
-  serif: theme?.fonts?.serif ?? "Georgia, 'Times New Roman', serif",
-  sans: theme?.fonts?.sans ?? "Inter, Helvetica, sans-serif",
-  mono: theme?.fonts?.mono ?? "'IBM Plex Mono', monospace",
+  display: theme?.fonts?.display ?? PLAYFAIR_DISPLAY,
+  serif: theme?.fonts?.serif ?? PLAYFAIR_DISPLAY,
+  sans: theme?.fonts?.sans ?? PLAYFAIR_DISPLAY,
+  mono: theme?.fonts?.mono ?? IBM_PLEX_MONO,
   radius: theme?.radius?.md ?? 6,
 });
 
@@ -57,17 +58,17 @@ interface CanvasProps {
   children: React.ReactNode;
   theme?: ThemeConfig;
   delay?: number;
-  /** Tiny label in the top-left (e.g. "EVIDENCE", "LOCATION") */
+  /** Tiny label at the top of the text panel (e.g. "EVIDENCE", "LOCATION") */
   label?: string;
-  /** Faint footer text */
+  /** Faint footer text at the bottom of the text panel */
   footer?: string;
   contentStyle?: React.CSSProperties;
-  /** Hero image URL — shown FULLSCREEN and CLEARLY (not blurred). This is what viewers see. */
+  /** Hero image URL — fills the top portion of the frame, fully visible */
   imageUrl?: string;
   /** Image treatment applied to the hero image */
   imageTreatment?: "dark" | "noir" | "desaturated" | "clean";
-  /** How dark to make the bottom gradient overlay (0-1). Default 0.7 — only affects bottom 45% for text readability */
-  bottomGradientOpacity?: number;
+  /** Height of the bottom text panel in px. Default 540 (~42% of 1280). Image fills the rest. */
+  panelHeight?: number;
   /** Ken Burns zoom direction for the hero image */
   kenBurns?: "in" | "out" | "none";
   /** Ken Burns pan direction */
@@ -83,16 +84,16 @@ export const MysteryCanvas: React.FC<CanvasProps> = ({
   contentStyle,
   imageUrl,
   imageTreatment = "dark",
-  bottomGradientOpacity = 0.7,
+  panelHeight = 540,
   kenBurns = "in",
   kenBurnsPan = "right",
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, height } = useVideoConfig();
   const t = getMysteryTokens(theme);
 
-  // Fast entrance — content visible in 0.3s (9 frames at 30fps)
-  const entrance = interpolate(frame - delay, [0, 9], [0, 1], {
+  // Quiet entrance — content visible in 0.47s (14 frames at 30fps)
+  const entrance = interpolate(frame - delay, [0, 14], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: Easing.out(Easing.cubic),
@@ -103,13 +104,13 @@ export const MysteryCanvas: React.FC<CanvasProps> = ({
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const baseScale = 1.08; // slightly zoomed to avoid edge gaps during pan
+  const baseScale = 1.08;
   const heroZoom = kenBurns === "in" ? baseScale + travel * 0.12 : kenBurns === "out" ? baseScale + 0.12 - travel * 0.12 : baseScale;
   const panDist = 25;
   const heroTx = kenBurnsPan === "left" ? -travel * panDist : kenBurnsPan === "right" ? travel * panDist : 0;
   const heroTy = kenBurnsPan === "up" ? -travel * panDist * 0.5 : kenBurnsPan === "down" ? travel * panDist * 0.5 : 0;
 
-  // Hero image filter — LIGHT treatment so the image is clearly visible
+  // Image filter — LIGHT treatment so the image is clearly visible in the top portion
   const heroFilter =
     imageTreatment === "noir"
       ? "grayscale(1) contrast(1.1) brightness(0.95)"
@@ -117,7 +118,10 @@ export const MysteryCanvas: React.FC<CanvasProps> = ({
       ? "grayscale(0.4) contrast(1.05) brightness(0.98) saturate(0.85)"
       : imageTreatment === "clean"
       ? "brightness(1.0)"
-      : "brightness(0.92) contrast(1.05) saturate(0.95)"; // "dark" — very light
+      : "brightness(0.94) contrast(1.05) saturate(0.95)";
+
+  // Panel slide-up entrance
+  const panelTranslate = (1 - entrance) * 40;
 
   // Exit fade
   const exit = interpolate(frame, [Math.max(0, durationInFrames - 10), durationInFrames], [1, 0], {
@@ -126,11 +130,14 @@ export const MysteryCanvas: React.FC<CanvasProps> = ({
     easing: Easing.in(Easing.quad),
   });
 
+  const imageHeight = height - panelHeight;
+  const gradientBlend = 100; // px of soft gradient between image and panel
+
   return (
-    <AbsoluteFill style={{ background: t.base, color: t.bright, fontFamily: t.sans, overflow: "hidden", opacity: exit }}>
-      {/* HERO IMAGE — fullscreen, clearly visible, Ken Burns zoom. This is what viewers SEE. */}
+    <AbsoluteFill style={{ background: t.base, color: t.bright, fontFamily: t.serif, overflow: "hidden", opacity: exit }}>
+      {/* ── IMAGE AREA (top portion) ── fully visible, Ken Burns zoom */}
       {imageUrl && (
-        <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: imageHeight + gradientBlend, overflow: "hidden" }}>
           <img
             src={imageUrl}
             alt=""
@@ -147,76 +154,83 @@ export const MysteryCanvas: React.FC<CanvasProps> = ({
         </div>
       )}
 
-      {/* Dark gradient ONLY at the bottom 50% — for text readability. Top half stays clear so the image is visible. */}
+      {/* ── TEXT PANEL (bottom portion) ── solid dark background, text is clearly readable */}
       <div style={{
         position: "absolute",
-        inset: 0,
-        background: `linear-gradient(to bottom, transparent 0%, transparent 50%, rgba(8,9,10,${bottomGradientOpacity * 0.5}) 70%, rgba(8,9,10,${bottomGradientOpacity}) 100%)`,
-        pointerEvents: "none",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: panelHeight + gradientBlend,
+        background: `linear-gradient(to bottom, ${t.base}00 0%, ${t.base}dd ${gradientBlend}px, ${t.base} ${gradientBlend + 40}px, ${t.base} 100%)`,
+        transform: `translateY(${panelTranslate}px)`,
+        opacity: entrance,
+        zIndex: 5,
       }} />
 
-      {/* Subtle top gradient for label readability */}
+      {/* Thin accent line at the panel's top edge — the single accent element */}
       <div style={{
         position: "absolute",
-        top: 0, left: 0, right: 0, height: 120,
-        background: `linear-gradient(to bottom, rgba(8,9,10,0.6) 0%, transparent 100%)`,
-        pointerEvents: "none",
+        bottom: panelHeight,
+        left: 0,
+        right: 0,
+        height: 1.5,
+        background: t.accent,
+        opacity: entrance * 0.7,
+        transform: `translateY(${panelTranslate}px)`,
+        zIndex: 8,
       }} />
 
-      {/* Accent line at top */}
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: t.accent, opacity: entrance * 0.85, zIndex: 5 }} />
-
-      {/* Label in top-left */}
+      {/* Label — mono, at the top of the text panel */}
       {label && (
         <div style={{
           position: "absolute",
-          top: 36,
-          left: 32,
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
+          bottom: panelHeight - 52,
+          left: 48,
+          right: 48,
           opacity: entrance * 0.9,
+          transform: `translateY(${panelTranslate}px)`,
           zIndex: 10,
         }}>
-          <span style={{ width: 5, height: 5, background: t.accent, borderRadius: "50%" }} />
           <span style={{
             fontFamily: t.mono,
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: 600,
             letterSpacing: 2.5,
             textTransform: "uppercase",
             color: t.mid,
-            textShadow: "0 1px 8px rgba(0,0,0,0.9)",
           }}>
             {label}
           </span>
         </div>
       )}
 
-      {/* Content area — positioned in safe zone, lower-center for feed optimization */}
+      {/* Content area — inside the text panel, padded, vertically centered */}
       <div style={{
         position: "absolute",
-        inset: "80px 36px 70px 36px",
+        bottom: 70,
+        left: 48,
+        right: 48,
+        height: panelHeight - 70 - (label ? 60 : 30),
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
         opacity: entrance,
+        transform: `translateY(${panelTranslate}px)`,
         zIndex: 10,
         ...contentStyle,
       }}>
         {children}
       </div>
 
-      {/* Footer */}
+      {/* Footer — mono, faint, at the very bottom of the panel */}
       {footer && (
         <div style={{
           position: "absolute",
-          bottom: 32,
-          left: 32,
-          right: 32,
-          display: "flex",
-          justifyContent: "space-between",
-          opacity: entrance * 0.6,
+          bottom: 28,
+          left: 48,
+          right: 48,
+          opacity: entrance * 0.5,
+          transform: `translateY(${panelTranslate}px)`,
           zIndex: 10,
         }}>
           <span style={{
@@ -226,7 +240,6 @@ export const MysteryCanvas: React.FC<CanvasProps> = ({
             letterSpacing: 1.5,
             textTransform: "uppercase",
             color: t.dim,
-            textShadow: "0 1px 6px rgba(0,0,0,0.9)",
           }}>
             {footer}
           </span>
@@ -247,15 +260,15 @@ interface RevealProps {
 
 export const MysteryReveal: React.FC<RevealProps> = ({ children, delay: d = 0, direction = "up", style }) => {
   const frame = useCurrentFrame();
-  const progress = interpolate(frame - d, [0, 10], [0, 1], {
+  const progress = interpolate(frame - d, [0, 14], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: Easing.out(Easing.cubic),
   });
 
-  const x = direction === "left" ? (1 - progress) * -30 : direction === "right" ? (1 - progress) * 30 : 0;
-  const y = direction === "up" ? (1 - progress) * 18 : 0;
-  const scale = direction === "scale" ? 0.95 + progress * 0.05 : 1;
+  const x = direction === "left" ? (1 - progress) * -24 : direction === "right" ? (1 - progress) * 24 : 0;
+  const y = direction === "up" ? (1 - progress) * 14 : 0;
+  const scale = direction === "scale" ? 0.96 + progress * 0.04 : 1;
 
   return (
     <div style={{ opacity: progress, transform: `translate3d(${x}px, ${y}px, 0) scale(${scale})`, ...style }}>
@@ -397,9 +410,9 @@ export const MysteryCaption: React.FC<CaptionProps> = ({
   children,
   theme,
   highlightColor,
-  fontSize = 28,
+  fontSize = 26,
   position = "center",
-  maxWidth = 600,
+  maxWidth = 580,
   style,
 }) => {
   const t = getMysteryTokens(theme);
@@ -408,7 +421,7 @@ export const MysteryCaption: React.FC<CaptionProps> = ({
   return (
     <div style={{
       position: position === "bottom" ? "absolute" : "relative",
-      bottom: position === "bottom" ? "12%" : "auto",
+      bottom: position === "bottom" ? "14%" : "auto",
       left: 0,
       right: 0,
       display: "flex",
@@ -418,15 +431,15 @@ export const MysteryCaption: React.FC<CaptionProps> = ({
       ...style,
     }}>
       <div style={{
-        fontFamily: t.sans,
+        fontFamily: t.serif,
         fontSize,
-        fontWeight: 800,
-        lineHeight: 1.25,
+        fontWeight: 400,
+        lineHeight: 1.32,
         color: t.bright,
         textAlign: "center",
         maxWidth,
-        textShadow: "0 2px 16px rgba(0,0,0,0.95), 0 0 30px rgba(0,0,0,0.7)",
-        letterSpacing: -0.3,
+        textShadow: "0 2px 18px rgba(0,0,0,0.95), 0 0 30px rgba(0,0,0,0.6)",
+        letterSpacing: -0.2,
       }}>
         {children}
       </div>
@@ -467,21 +480,19 @@ export const MysteryLabel: React.FC<{
   color?: string;
 }> = ({ children, theme, color }) => {
   const t = getMysteryTokens(theme);
-  const c = color ?? t.accent;
+  const c = color ?? t.mid;
   return (
     <span style={{
       display: "inline-flex",
       alignItems: "center",
-      gap: 8,
       fontFamily: t.mono,
-      fontSize: 12,
+      fontSize: 13,
       fontWeight: 600,
-      letterSpacing: 2,
+      letterSpacing: 2.5,
       textTransform: "uppercase",
-      color: t.mid,
-      textShadow: "0 1px 8px rgba(0,0,0,0.9)",
+      color: c,
+      textShadow: "0 1px 10px rgba(0,0,0,0.95)",
     }}>
-      <span style={{ width: 5, height: 5, background: c, borderRadius: "50%" }} />
       {children}
     </span>
   );

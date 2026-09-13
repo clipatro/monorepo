@@ -63,20 +63,22 @@ const _config = loadConfig("workflow-service");
 const STORY_SERVICE_URL = _config.services.storyService;
 const RESEARCH_SERVICE_URL = _config.services.researchService;
 const IMAGE_SERVICE_URL = _config.services.imageService;
+const API_GATEWAY_URL = _config.services.apiGateway;
 const VOICE_SERVICE_URL = _config.services.voiceService;
 const VIDEO_SERVICE_URL = _config.services.videoService;
-const API_GATEWAY_URL = _config.services.apiGateway;
 
 // === Helper: fetch with error handling ===
 
 async function postJson(
 	url: string,
 	body: unknown,
+	timeoutMs?: number,
 ): Promise<Record<string, unknown>> {
 	const res = await fetch(url, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(body),
+		...(timeoutMs !== undefined ? { timeout: timeoutMs } : {}),
 	});
 	// Read the response body as text first, then try to parse as JSON.
 	// This avoids "Failed to parse JSON" errors when the server returns a
@@ -832,6 +834,7 @@ export const voiceGenerationHandler: StepHandler = async (
 			provider: ttsProvider,
 			voiceId: ttsVoiceId,
 			interSegmentPauseMs: 300,
+			voiceoverSpeed: ctx.channelConfig.voiceoverSpeed ?? 1.0,
 		});
 
 		const voiceoverId = result.voiceoverId as string;
@@ -1349,20 +1352,19 @@ export const videoGenerationHandler: StepHandler = async (
 	const isRemotionTemplate = tmpl?.render.renderer === "remotion";
 	const isClipTemplate = sceneType === "video-clip-scene";
 	const isFlowTemplate = sceneType === "flow-hybrid";
-	const renderEndpoint = isRemotionTemplate
-		? "/render-documentary"
-		: isFlowTemplate
-			? "/render-flow"
-			: isClipTemplate
-				? "/render-clips"
-				: "/generate";
+	const isKidsTemplate = ctx.channelConfig.templateId?.startsWith("kids-") ?? false;
+	const renderEndpoint = isKidsTemplate ? "/render-kids"
+		: isRemotionTemplate ? "/render-documentary"
+		: isFlowTemplate ? "/render-flow"
+		: isClipTemplate ? "/render-clips"
+		: "/generate";
 
 	// For clip/flow/remotion templates, pass the template config so the renderer knows the layout
 	const requestBody: Record<string, unknown> = {
 		runId: ctx.runId,
 		apiGatewayUrl: API_GATEWAY_URL,
 	};
-	if ((isClipTemplate || isFlowTemplate || isRemotionTemplate) && tmpl) {
+	if ((isClipTemplate || isFlowTemplate || isRemotionTemplate || isKidsTemplate) && tmpl) {
 		requestBody.templateConfig = tmpl;
 		// Check if voiceover was generated
 		const voiceGen = ctx.dependencyResults.voice_generation;
@@ -1376,7 +1378,14 @@ export const videoGenerationHandler: StepHandler = async (
 	}
 
 	try {
-		const result = await postJson(`${VIDEO_SERVICE_URL}${renderEndpoint}`, requestBody);
+		// Video renders can take 10+ minutes (Remotion + FFmpeg) — Bun's default
+		// fetch timeout (300s) would kill the request while the render continues.
+		// Give it 15 minutes to match the step lease.
+		const result = await postJson(
+			`${VIDEO_SERVICE_URL}${renderEndpoint}`,
+			requestBody,
+			15 * 60 * 1000,
+		);
 
 		const assetId = result.assetId as string;
 		const filePath = result.filePath as string;

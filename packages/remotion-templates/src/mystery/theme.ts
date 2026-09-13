@@ -11,6 +11,7 @@
  */
 
 import type { ThemeConfig } from "../themes/index.ts";
+import { PLAYFAIR_DISPLAY, IBM_PLEX_MONO } from "./fonts.ts";
 
 export const mysteryTheme: ThemeConfig = {
   name: "mystery-dark",
@@ -51,10 +52,10 @@ export const mysteryTheme: ThemeConfig = {
     axis: "rgba(255,255,255,0.08)",
   },
   fonts: {
-    display: "'League Gothic', 'Arial Narrow', sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    sans: "Inter, Helvetica, sans-serif",
-    mono: "'IBM Plex Mono', 'JetBrains Mono', monospace",
+    display: PLAYFAIR_DISPLAY,
+    serif: PLAYFAIR_DISPLAY,
+    sans: PLAYFAIR_DISPLAY,
+    mono: IBM_PLEX_MONO,
   },
   radius: {
     sm: 2,

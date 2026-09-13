@@ -1,0 +1,84 @@
+{
+  "title": "Milo and the Little Star That Fell from the Sky",
+  "totalDurationSec": 46,
+  "artStyle": "Soft, warm, storybook illustration style with gentle lighting. The colors are warm and inviting, with golden autumn tones in the forest, soft glow around the star, and a dreamy, comforting atmosphere. Characters are cute and friendly with rounded shapes.",
+  "characterDesign": {
+    "milo": "A young boy aged 6-7 with curly brown hair, big expressive eyes, wearing a blue jacket and yellow boots. He has a kind and curious face.",
+    "star": "A small, round star character with a friendly face (two eyes and a smile). It is glowing faintly, with a dim, fading light. The star has a soft, warm golden-yellow glow.",
+    "rabbit": "A friendly, fluffy rabbit with soft brown fur, long ears, and a gentle expression. It is small and cute.",
+    "owl": "A wise, friendly owl with large, round glasses, soft brown and white feathers, and a gentle, knowing smile.",
+    "deer": "A gentle, friendly deer with soft brown fur, large kind eyes, and small antlers. It is elegant and calm."
+  },
+  "scenes": [
+    {
+      "sceneId": "scene-1",
+      "narration": "One evening, in a cozy little town, a curious boy named Milo was playing in the forest.",
+      "imagePrompt": "A warm autumn forest with golden leaves, a young boy with curly brown hair, blue jacket, and yellow boots, walking curiously among the trees. The light is soft and golden, with a storybook illustration style. The boy looks curious and happy.",
+      "emotion": "Curious and peaceful",
+      "durationSec": 6
+    },
+    {
+      "sceneId": "scene-2",
+      "narration": "Under a big oak tree, Milo found a tiny star, dim and sad, lying in the grass.",
+      "imagePrompt": "Close-up of a small, round star with a sad face, lying on a bed of grass under a large oak tree. The star's glow is faint and fading. Milo is kneeling beside it, looking concerned. The forest is warm but the scene is slightly darker around the star. Storybook illustration style.",
+      "emotion": "Discovery and concern",
+      "durationSec": 6
+    },
+    {
+      "sceneId": "scene-3",
+      "narration": "The little star whispered, 'I lost my glow. Can you help me find my way home?'",
+      "imagePrompt": "Milo gently holds the tiny star in his hands. The star has a sad, pleading face. Milo looks determined and kind. The background is a soft-focus forest with dappled light. The star's glow is faint but visible. Warm, storybook style.",
+      "emotion": "Empathy and determination",
+      "durationSec": 6
+    },
+    {
+      "sceneId": "scene-4",
+      "narration": "Milo knew they had to reach the highest hill, so they set off on a grand adventure.",
+      "imagePrompt": "Milo is walking along a winding forest path, holding the star in his hand. The star is now slightly brighter, showing a hopeful expression. The path leads upward toward a distant hill. The forest is lush and warm, with friendly animals peeking from the bushes. Storybook style with gentle light.",
+      "emotion": "Adventurous and hopeful",
+      "durationSec": 6
+    },
+    {
+      "sceneId": "scene-5",
+      "narration": "Along the way, they met a rabbit, an owl, and a deer, all eager to help.",
+      "imagePrompt": "Milo is surrounded by three friendly animals: a fluffy rabbit, a wise owl with glasses, and a gentle deer. They are all looking at the star with warm expressions. The setting is a sunny clearing in the forest. The star glows a little brighter. Storybook illustration style, warm and inviting.",
+      "emotion": "Friendship and joy",
+      "durationSec": 6
+    },
+    {
+      "sceneId": "scene-6",
+      "narration": "Together, they climbed the hill, and the star's glow grew stronger with every step.",
+      "imagePrompt": "Milo, the rabbit, the owl, and the deer are climbing a gentle hill. The star is in Milo's hands, now glowing brightly. The animals are supporting each other. The background shows a beautiful sunset sky. The mood is uplifting. Storybook style with warm colors.",
+      "emotion": "Courage and teamwork",
+      "durationSec": 6
+    },
+    {
+      "sceneId": "scene-7",
+      "narration": "At the top, Milo held the star high, and it sparkled like never before.",
+      "imagePrompt": "Milo stands at the top of the hill, holding the star high above his head. The star is shining brilliantly, casting a warm glow over the scene. The animals look on with awe and happiness. The sky is a deep blue with stars beginning to appear. Storybook illustration style with magical lighting.",
+      "emotion": "Triumph and magic",
+      "durationSec": 6
+    },
+    {
+      "sceneId": "scene-8",
+      "narration": "With a gentle whoosh, the star flew back to the sky, leaving a trail of sparkles.",
+      "imagePrompt": "The star is lifting off from Milo's hands, floating up into the night sky, leaving a trail of golden sparkles. Milo and the animals watch with happy faces. The sky is full of stars, and the star is joining them, glowing brightly. The scene is warm and emotional. Storybook style.",
+      "emotion": "Bittersweet and joyful",
+      "durationSec": 6
+    },
+    {
+      "sceneId": "scene-9",
+      "narration": "Milo smiled, knowing he had a friend in the sky forever.",
+      "imagePrompt": "Milo is looking up at the sky, smiling, with the animals around him. The star is now a bright point in the sky, twinkling. The scene is peaceful and heartwarming. The forest is in the background, and the night sky is full of stars. Storybook illustration style.",
+      "emotion": "Satisfaction and warmth",
+      "durationSec": 4
+    },
+    {
+      "sceneId": "scene-10",
+      "narration": "",
+      "imagePrompt": "A colorful end card with the text 'Subscribe for more stories!' in a playful font. The background is a whimsical sky with stars and a crescent moon, with cute characters like Milo and the star peeking in. The art style is consistent with the rest of the video.",
+      "emotion": "Inviting and cheerful",
+      "durationSec": 4
+    }
+  ]
+}

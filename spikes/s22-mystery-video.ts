@@ -24,6 +24,11 @@
  * Usage:
  *   bun run spikes/s22-mystery-video.ts "The Flannan Isles Lighthouse Mystery"
  *   DRY_RUN=true bun run spikes/s22-mystery-video.ts "The Dyatlov Pass Incident"
+ *   bun run spikes/s22-mystery-video.ts --skip-ai
+ *     ↑ Reuses existing assets in spikes/output/s22/ and only runs
+ *       composition generation + Remotion render. Zero AI calls, $0.00.
+ *       Useful for iterating on component styling without re-paying for
+ *       research, script, images, narration, and music sync.
  */
 
 import { exec } from "node:child_process";
@@ -1084,15 +1089,11 @@ function generateMysteryRenderEntry(config: any, script: MysteryScriptArtifact):
   const titleCardScene = script.scenes.find((s) => s.componentSlug === "mystery-title-card");
   const endCardScene = script.scenes.find((s) => s.componentSlug === "mystery-end-card");
 
-  // Build title card data with hook
-  const titleCardData = titleCardScene?.data ?? { title: config.titleCard.title, subtitle: config.titleCard.subtitle };
-  const titleCardImageProp = config.titleCardImageUrl ? `imageUrl={staticFile("${config.titleCardImageUrl}")}` : "";
-  const titleCardTreatment = titleCardScene?.imageTreatment ? `imageTreatment="${titleCardScene.imageTreatment}"` : "";
+  // Build title card data — merge image URL + treatment INTO data (components accept them via data, not props)
+  const titleCardDataBase = titleCardScene?.data ?? { title: config.titleCard.title, subtitle: config.titleCard.subtitle };
 
-  // Build end card data with cta, channelName, finalQuestion
-  const endCardData = endCardScene?.data ?? { cta: "Follow for more mysteries", channelName: "mysteryfiles", finalQuestion: "What do YOU think happened?" };
-  const endCardImageProp = config.endCardImageUrl ? `imageUrl={staticFile("${config.endCardImageUrl}")}` : "";
-  const endCardTreatment = endCardScene?.imageTreatment ? `imageTreatment="${endCardScene.imageTreatment}"` : "";
+  // Build end card data — merge image URL + treatment INTO data
+  const endCardDataBase = endCardScene?.data ?? { cta: "Follow for more mysteries", channelName: "mysteryfiles", finalQuestion: "What do YOU think happened?" };
 
   const sceneRenders = scenes.map((s) => {
     const dataStr = JSON.stringify(s.data);
@@ -1103,10 +1104,20 @@ function generateMysteryRenderEntry(config: any, script: MysteryScriptArtifact):
       </Sequence>`;
   }).join("\n");
 
+  // For title/end card, we need to handle the staticFile() call specially —
+  // it can't be inside JSON.stringify. We build the data object as a JS expression.
+  const titleCardDataExpr = config.titleCardImageUrl
+    ? `{${JSON.stringify(titleCardDataBase).slice(1, -1)}, imageUrl: staticFile("${config.titleCardImageUrl}"), imageTreatment: "${titleCardScene?.imageTreatment ?? "dark"}"}`
+    : JSON.stringify(titleCardDataBase);
+  const endCardDataExpr = config.endCardImageUrl
+    ? `{${JSON.stringify(endCardDataBase).slice(1, -1)}, imageUrl: staticFile("${config.endCardImageUrl}"), imageTreatment: "${endCardScene?.imageTreatment ?? "dark"}"}`
+    : JSON.stringify(endCardDataBase);
+
   return `import React from "react";
 import { Composition, AbsoluteFill, Sequence, Audio, staticFile } from "remotion";
 import {
   mysteryTheme,
+  loadMysteryFonts,
   MysteryTitleCard,
   MysteryImageReveal,
   MysteryQuestion,
@@ -1118,6 +1129,11 @@ import {
   MysteryEnding,
   MysteryEndCard,
 } from "@automation/remotion-templates";
+
+// Load Playfair Display + IBM Plex Mono via @remotion/google-fonts.
+// Idempotent — safe at module load. Without this, serif text falls back to
+// Times New Roman and mono falls back to a generic monospace.
+loadMysteryFonts();
 
 const MysterySceneRenderer: React.FC<{
   slug: string;
@@ -1146,11 +1162,11 @@ const MysteryVideo: React.FC = () => {
   return (
     <AbsoluteFill style={{ background: "#08090a" }}>
       <Sequence from={${config.titleCard.startFrame}} durationInFrames={${config.titleCard.endFrame - config.titleCard.startFrame}}>
-        <MysteryTitleCard data={${JSON.stringify(titleCardData)}} theme={mysteryTheme} ${titleCardImageProp} ${titleCardTreatment} />
+        <MysteryTitleCard data={${titleCardDataExpr}} theme={mysteryTheme} />
       </Sequence>
 ${sceneRenders}
       <Sequence from={${config.endCard.startFrame}} durationInFrames={${config.endCard.endFrame - config.endCard.startFrame}}>
-        <MysteryEndCard data={${JSON.stringify(endCardData)}} theme={mysteryTheme} ${endCardImageProp} ${endCardTreatment} />
+        <MysteryEndCard data={${endCardDataExpr}} theme={mysteryTheme} />
       </Sequence>
       <Audio src={staticFile("mixed-audio.wav")} />
     </AbsoluteFill>
@@ -1180,7 +1196,10 @@ async function runRender(
 
   const videoPath = join(outDir, "mystery-video.mp4");
   const publicDir = join(outDir, "public");
-  const cmd = `npx remotion render "${composition.renderEntryPath}" "${composition.compositionId}" "${videoPath}" --public-dir="${publicDir}" --log=verbose`;
+  // Use the locally-pinned Remotion CLI (4.0.411) directly — `bunx remotion`
+  // resolves to the latest cached version (e.g. 4.0.516) and triggers a
+  // "Multiple versions of Remotion detected" error.
+  const cmd = `bun node_modules/@remotion/cli/remotion-cli.js render "${composition.renderEntryPath}" "${composition.compositionId}" "${videoPath}" --public-dir="${publicDir}" --log=verbose`;
 
   log("Render", `Running Remotion render...`);
   const { stdout, stderr } = await execAsync(cmd, { maxBuffer: 50 * 1024 * 1024 });
@@ -1370,10 +1389,142 @@ function generateMockScript(topic: string, research: MysteryResearchArtifact): M
   };
 }
 
+// ─── Skip-AI mode — reuse existing assets, only run composition + render ────
+
+/**
+ * Load existing artifacts from spikes/output/s22/ and jump straight to
+ * composition generation + Remotion render. Skips all AI stages (research,
+ * script, image generation, narration, music sync) — zero paid calls.
+ *
+ * Usage:
+ *   bun run spikes/s22-mystery-video.ts --skip-ai
+ *   bun run spikes/s22-mystery-video.ts --skip-ai "The Flannan Isles Lighthouse Mystery"
+ *
+ * Requires existing artifacts:
+ *   02-script.json, 03-scene-plan.json, 04-images.json,
+ *   05-narration.json, 06-music-sync.json
+ */
+async function runSkipAi(): Promise<SpikeResult> {
+  await loadEnv();
+
+  const topic = process.argv.find((a) => !a.startsWith("-") && a !== process.argv[0] && a !== process.argv[1]) ?? "The Flannan Isles Lighthouse Mystery";
+  const theme = "mystery-dark";
+
+  console.log("═══════════════════════════════════════════════════════════════");
+  console.log("  S22 — Mystery Video Generation Spike (SKIP-AI MODE)");
+  console.log(`  Topic: "${topic}"`);
+  console.log(`  Theme: ${theme}`);
+  console.log("  AI stages: SKIPPED (reusing existing assets, $0.00)");
+  console.log("  Running: composition generation + Remotion render only");
+  console.log("═══════════════════════════════════════════════════════════════\n");
+
+  const outDir = await spikeDir("s22");
+
+  // Load existing artifacts
+  const loadJson = async (filename: string): Promise<any> => {
+    const path = join(outDir, filename);
+    const content = await readFile(path, "utf-8");
+    return JSON.parse(content);
+  };
+
+  log("SkipAI", "Loading existing artifacts...");
+
+  const script = await loadJson("02-script.json") as MysteryScriptArtifact;
+  log("SkipAI", `  02-script.json: ${script.scenes.length} scenes, ${script.narration.length} chars narration`);
+
+  const scenePlan = await loadJson("03-scene-plan.json") as MysteryScenePlanArtifact;
+  log("SkipAI", `  03-scene-plan.json: ${scenePlan.scenes.length} scenes, ${scenePlan.totalFrames} frames (${(scenePlan.totalFrames / FPS).toFixed(1)}s)`);
+
+  const images = await loadJson("04-images.json") as MysteryImageArtifact;
+  log("SkipAI", `  04-images.json: ${images.images.length} images`);
+
+  const narration = await loadJson("05-narration.json") as MysteryNarrationArtifact;
+  log("SkipAI", `  05-narration.json: ${narration.durationSec.toFixed(1)}s narration`);
+
+  const musicSync = await loadJson("06-music-sync.json") as MysteryMusicSyncArtifact;
+  log("SkipAI", `  06-music-sync.json: ${musicSync.durationSec.toFixed(1)}s mixed audio`);
+
+  // Verify image files exist on disk
+  for (const img of images.images) {
+    if (!await exists(img.path)) {
+      throw new Error(`Image file missing: ${img.path}. Re-run without --skip-ai to regenerate assets.`);
+    }
+  }
+  if (!await exists(musicSync.mixedAudioPath)) {
+    throw new Error(`Mixed audio file missing: ${musicSync.mixedAudioPath}. Re-run without --skip-ai to regenerate assets.`);
+  }
+  log("SkipAI", "All asset files verified on disk.\n");
+
+  // Stage 7: Composition (regenerate render.tsx with polished components)
+  const composition = await runComposition(script, scenePlan, images, musicSync, outDir);
+
+  // Stage 8: Render
+  let render: MysteryRenderArtifact | null = null;
+  try {
+    render = await runRender(composition, outDir);
+  } catch (err) {
+    console.error(`\n✗ Render failed: ${err}`);
+    log("Render", "Render step failed — composition artifacts are still available");
+  }
+
+  // Summary
+  console.log("\n═══════════════════════════════════════════════════════════════");
+  console.log("  SPIKE SUMMARY (SKIP-AI MODE)");
+  console.log("═══════════════════════════════════════════════════════════════\n");
+  console.log(`  Topic:    "${topic}"`);
+  console.log(`  Theme:    ${theme}`);
+  console.log(`  Mode:     SKIP-AI (reused existing assets)`);
+  console.log(`  Scenes:   ${script.scenes.length}`);
+  console.log(`  Images:   ${images.images.length} (reused)`);
+  console.log(`  Narration: ${narration.durationSec.toFixed(1)}s (reused)`);
+  console.log(`  Total frames: ${scenePlan.totalFrames} (${(scenePlan.totalFrames / FPS).toFixed(1)}s)`);
+  console.log(`  Total cost: $0.0000 (no AI calls)`);
+  if (render) {
+    console.log(`\n  Video: ${render.videoPath}`);
+    console.log(`  Size: ${(render.sizeBytes / 1024 / 1024).toFixed(1)} MB`);
+  }
+  console.log(`\n  Artifacts: ${outDir}`);
+  console.log("═══════════════════════════════════════════════════════════════\n");
+
+  const artifactPaths = [
+    join(outDir, "composition-config.json"),
+    join(outDir, "render.tsx"),
+  ];
+  if (render) artifactPaths.push(render.videoPath);
+
+  return {
+    id: "s22",
+    name: "Mystery Video Generation (Skip-AI)",
+    goal: `Re-render mystery video from existing assets for topic "${topic}" with polished components`,
+    result: render ? "pass" : "partial",
+    measurements: {
+      topic,
+      theme,
+      mode: "skip-ai",
+      scenes: script.scenes.length,
+      imagesReused: images.images.length,
+      narrationDurationSec: narration.durationSec.toFixed(1),
+      totalFrames: scenePlan.totalFrames,
+      videoDurationSec: render?.durationSec.toFixed(1) ?? "N/A",
+      videoSizeMB: render ? (render.sizeBytes / 1024 / 1024).toFixed(1) : "N/A",
+      totalCostUsd: "0.0000",
+    },
+    notes: render
+      ? `Re-rendered mystery video with polished v3 components: ${render.durationSec.toFixed(1)}s, ${(render.sizeBytes / 1024 / 1024).toFixed(1)} MB. Reused ${images.images.length} existing images and ${narration.durationSec.toFixed(1)}s narration. No AI calls.`
+      : `Composition artifacts regenerated but render failed.`,
+    artifactPaths,
+  };
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 export async function run(): Promise<SpikeResult> {
   await loadEnv();
+
+  // Check for --skip-ai flag — reuses existing assets, only runs composition + render
+  if (process.argv.includes("--skip-ai")) {
+    return runSkipAi();
+  }
 
   const topic = process.argv[2] ?? "The Flannan Isles Lighthouse Mystery";
   const theme = "mystery-dark";
@@ -1505,13 +1656,16 @@ export async function run(): Promise<SpikeResult> {
     artifactPaths,
   };
 }
+import { pathToFileURL } from "node:url";
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  run().then((result) => {
-    console.log(`\nResult: ${result.result}`);
-    process.exit(0);
-  }).catch((err) => {
-    console.error("Spike failed:", err);
-    process.exit(1);
-  });
+if (import.meta.url === pathToFileURL(process.argv[1]!).href) {
+  run()
+    .then((result) => {
+      console.log(`\nResult: ${result.result}`);
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error("Spike failed:", err);
+      process.exit(1);
+    });
 }

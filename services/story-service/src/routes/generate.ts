@@ -201,7 +201,8 @@ export function registerGenerateRoutes(app: Hono, config: AppConfig, client: Llm
     const roster = await getChannelCharacterRoster(input.channel);
     const mentionText = [input.topic, input.storyline, channel?.niche].filter(Boolean).join(" ");
     const mentioned = detectMentionedCharacters(mentionText, roster);
-    const characterContextPrompt = buildCharacterContextPrompt(roster, mentioned, !!input.storyline);
+    const isKidsChannel = channel?.video_template === "kids-9x16" || channel?.video_template === "kids-16x9";
+    const characterContextPrompt = buildCharacterContextPrompt(roster, mentioned, !!input.storyline, { kidsChannel: isKidsChannel });
 
     const prompt = buildStoryGenerationPrompt(input, channel, characterContextPrompt);
 

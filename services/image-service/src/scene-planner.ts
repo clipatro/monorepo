@@ -140,6 +140,39 @@ function buildScenePlanPrompt(
         "- Each image should feel like a different photograph from a skilled photographer, not the same composition re-aimed.",
       ].join("\n").replace(/\$\{channel\.aspect_ratio\}/g, channel.aspect_ratio);
 
+  const isKidsTemplate = channel.video_template === "kids-9x16" || channel.video_template === "kids-16x9";
+
+  const kidsInstructions = isKidsTemplate
+    ? [
+        "",
+        "KIDS TEMPLATE — SPECIAL INSTRUCTIONS:",
+        "- This is a children's storybook video. The tone must be warm, gentle, wonder-filled, and emotionally satisfying — like a bedtime story come to life.",
+        "- Each scene must have a clear image, action, and emotion. Think in visual scenes, not sentences.",
+        "- Narration should sound natural when spoken aloud by a warm storyteller — not a script being read.",
+        "- Include a final 'end card' scene with NO narration (narrationText: \"\") — this is where the subscribe CTA appears.",
+        ...(characterRoster.length > 0 ? [
+          `- The locked channel protagonist is ${characterRoster[0]!.name}. Refer to them by name (\"${characterRoster[0]!.name}\") in every visualEvent and list them in \"characters\" — never use a different name or species for the protagonist.`,
+        ] : []),
+        "",
+        "NO TEXT IN IMAGES (CRITICAL — APPLIES TO ALL SCENES):",
+        "- Every visualEvent must describe ONLY visual elements: characters, objects, environment, lighting, mood, and composition.",
+        "- NEVER include any text, captions, titles, labels, logos, signs, words, letters, numbers, or written content in the visualEvent.",
+        "- Do NOT write things like 'text saying \"Subscribe\"' or 'the words \"The End\"' or 'a sign reading...' in the visualEvent.",
+        "- All subtitles, captions, titles, and text overlays are rendered SEPARATELY by the video system after the image is generated.",
+        "",
+        "SUBTITLE POSITION INTELLIGENCE (CRITICAL):",
+        "For EACH scene, you must decide whether the caption band should appear at the TOP or BOTTOM of the frame. Captions are rendered in a dedicated band that is physically SEPARATE from the image (the image sits in its own window), so overlap is impossible — but the band position still shapes the composition:",
+        "- Choose \"top\" when the character's gaze or action points UPWARD (looking up at the sky, reaching up, standing in a valley, underground). The caption band sits at top, the image window below it — the gaze leads into the caption.",
+        "- Choose \"bottom\" when the character's gaze or action points DOWNWARD or is neutral (standing tall, looking down from a hill, aerial view). The caption band sits at bottom, the image window above it — the standard reading position.",
+        "- Vary the positions across scenes for visual variety — don't use the same position for every scene unless the story demands it.",
+        "- The first scene (title card) and last scene (end card) should use \"bottom\" since they have special layouts.",
+        "",
+        "EMOTION PER SCENE:",
+        "- Each scene must have an 'emotion' field describing the emotional tone: wonder, excitement, warmth, joy, curiosity, courage, friendship, etc.",
+        "- The emotion is shown as a small label pill on the video — keep it to 1-2 words.",
+      ].join("\n")
+    : "";
+
   const jsonSchemaSection = isFlowHybrid
     ? `{
   "scenes": [
@@ -182,6 +215,30 @@ function buildScenePlanPrompt(
       "characters": [
         { "name": "character name from the story characters", "roleInScene": "protagonist|supporting|antagonist", "poseAndExpression": "specific body language and expression for this character in this scene" }
       ]
+    }
+  ]
+}`
+    : isKidsTemplate
+    ? `{
+  "scenes": [
+    {
+      "order": 1,
+      "storyPurpose": "one precise narrative job",
+      "narrationText": "final voice-over text for this scene",
+      "visualEvent": "one decisive photographable instant",
+      "characterRole": "one allowed character role",
+      "poseAndExpression": "specific observable body language and restrained expression, or N/A",
+      "environment": "specific setting with continuity details",
+      "cameraFraming": "shot size, angle, natural lens perspective, and subject placement",
+      "lightingAndMood": "physical light source, time of day, color temperature, and restrained mood",
+      "expectedDurationSeconds": 0,
+      "imageRequirement": "one allowed image requirement",
+      "sourceClaimIds": ["only valid claim IDs used in this scene"],
+      "characters": [
+        { "name": "character name from the story characters", "roleInScene": "protagonist|supporting|antagonist", "poseAndExpression": "specific body language and expression for this character in this scene" }
+      ],
+      "subtitlePosition": "top or bottom — where the caption band appears (choose based on the character's gaze/action direction)",
+      "emotion": "the emotional tone of this scene (e.g. 'wonder', 'excitement', 'warmth', 'joy', 'curiosity', 'courage', 'friendship')"
     }
   ]
 }`
@@ -265,6 +322,7 @@ NARRATION:
 
 VISUAL DIRECTION:
 ${visualDirectionSection}
+${kidsInstructions}
 
 CHARACTER USE:
 ${characterRule}

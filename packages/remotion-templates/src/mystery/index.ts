@@ -1,9 +1,12 @@
 /**
  * Mystery namespace — public exports.
  *
- * REVISED v2 — feed-optimized design:
- * - Blurred BG images on every scene for visual depth
- * - Bold captions, Ken Burns zoom, fast hooks
+ * REVISED v3 — editorial documentary polish:
+ * - Unified type system: serif (Georgia) for content, mono (IBM Plex Mono) for labels
+ * - Generous bottom space (150px) reserved for captions
+ * - Light bottom gradient — images stay visible and atmospheric
+ * - One accent element per frame — restraint over decoration
+ * - Quiet cubic-ease entrances — no springs, no bounces
  * - Cliffhanger endings, not "end of file"
  */
 
@@ -46,6 +49,9 @@ export {
 
 // Theme
 export { mysteryTheme } from "./theme.ts";
+
+// Fonts — call loadMysteryFonts() once at the top of any composition
+export { loadMysteryFonts, PLAYFAIR_DISPLAY, IBM_PLEX_MONO } from "./fonts.ts";
 
 // Capabilities
 export {

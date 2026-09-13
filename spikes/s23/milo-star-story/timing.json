@@ -1,0 +1,67 @@
+{
+  "totalDurationSec": 50.25,
+  "voice": "af_heart",
+  "model": "onnx-community/Kokoro-82M-v1.0-ONNX",
+  "scenes": [
+    {
+      "sceneId": "scene-1",
+      "narration": "One evening, in a cozy little town, a curious boy named Milo was playing in the forest.",
+      "durationSec": 6.15,
+      "startSec": 0
+    },
+    {
+      "sceneId": "scene-2",
+      "narration": "Under a big oak tree, Milo found a tiny star, dim and sad, lying in the grass.",
+      "durationSec": 5.575,
+      "startSec": 6.65
+    },
+    {
+      "sceneId": "scene-3",
+      "narration": "The little star whispered, 'I lost my glow. Can you help me find my way home?'",
+      "durationSec": 5.125,
+      "startSec": 12.725000000000001
+    },
+    {
+      "sceneId": "scene-4",
+      "narration": "Milo knew they had to reach the highest hill, so they set off on a grand adventure.",
+      "durationSec": 5.125,
+      "startSec": 18.35
+    },
+    {
+      "sceneId": "scene-5",
+      "narration": "Along the way, they met a rabbit, an owl, and a deer, all eager to help.",
+      "durationSec": 4.85,
+      "startSec": 23.975
+    },
+    {
+      "sceneId": "scene-6",
+      "narration": "Together, they climbed the hill, and the star's glow grew stronger with every step.",
+      "durationSec": 5.1,
+      "startSec": 29.325000000000003
+    },
+    {
+      "sceneId": "scene-7",
+      "narration": "At the top, Milo held the star high, and it sparkled like never before.",
+      "durationSec": 5.025,
+      "startSec": 34.925000000000004
+    },
+    {
+      "sceneId": "scene-8",
+      "narration": "With a gentle whoosh, the star flew back to the sky, leaving a trail of sparkles.",
+      "durationSec": 5.3,
+      "startSec": 40.45
+    },
+    {
+      "sceneId": "scene-9",
+      "narration": "Milo smiled, knowing he had a friend in the sky forever.",
+      "durationSec": 4,
+      "startSec": 46.25
+    },
+    {
+      "sceneId": "scene-10",
+      "narration": "",
+      "durationSec": 0,
+      "startSec": 50.75
+    }
+  ]
+}

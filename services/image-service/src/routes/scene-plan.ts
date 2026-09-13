@@ -9,6 +9,7 @@ import type {
 import { zValidator } from "@hono/zod-validator";
 import { scenePlanSchema } from "../schemas";
 import { planScenes } from "../scene-planner";
+import { validateSubtitlePositions } from "../kids-image";
 import { uuid } from "../utils";
 
 // === POST /scene-plan — plan scenes from an approved story ===
@@ -132,6 +133,20 @@ export function registerScenePlanRoutes(app: Hono, config: AppConfig, client: Ll
         scenePlanConfig,
       );
 
+      // Kids template: validate subtitle positions against the visual
+      // descriptions — flip any scene where the subject is described in the
+      // same region as the reserved subtitle area (ported from the s23 spike).
+      const isKidsTemplate =
+        channel.video_template === "kids-9x16" || channel.video_template === "kids-16x9";
+      if (isKidsTemplate) {
+        const corrections = validateSubtitlePositions(plan.scenes);
+        for (const c of corrections) {
+          console.log(
+            `[image-service] subtitle-position corrected scene ${c.order}: ${c.original} → ${c.corrected} (${c.reason})`,
+          );
+        }
+      }
+
       // Delete existing scenes and scene_characters for this story (idempotent re-plan)
       await db.prepare("DELETE FROM scene_characters WHERE scene_id IN (SELECT id FROM scenes WHERE story_id = ?)").run(storyId);
       await db.prepare("DELETE FROM scenes WHERE story_id = ?").run(storyId);
@@ -144,14 +159,17 @@ export function registerScenePlanRoutes(app: Hono, config: AppConfig, client: Ll
           INSERT INTO scenes (
             id, story_id, "order", story_purpose, narration_text, visual_event,
             character_role, pose_and_expression, environment, camera_framing,
-            lighting_and_mood, expected_duration_seconds, image_requirement, source_claim_ids, media_type
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            lighting_and_mood, expected_duration_seconds, image_requirement, source_claim_ids, media_type,
+            subtitle_position, emotion
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           id, storyId, s.order, s.storyPurpose, s.narrationText, s.visualEvent,
           s.characterRole, s.poseAndExpression, s.environment, s.cameraFraming,
           s.lightingAndMood, s.expectedDurationSeconds, s.imageRequirement,
           JSON.stringify(s.sourceClaimIds ?? []),
           s.mediaType ?? "video-clip",
+          s.subtitlePosition ?? null,
+          s.emotion ?? null,
         );
         scenes.push({ id, order: s.order });
 
@@ -159,7 +177,13 @@ export function registerScenePlanRoutes(app: Hono, config: AppConfig, client: Ll
         if (s.characters && Array.isArray(s.characters)) {
           for (let i = 0; i < s.characters.length; i++) {
             const sc = s.characters[i]!;
-            const versionId = resolveCharacterVersionId(sc.name, roster);
+            let versionId = resolveCharacterVersionId(sc.name, roster);
+            // Kids channels have one locked protagonist — if the planner used a
+            // story-specific name that doesn't resolve to the roster, link the
+            // protagonist to the story's frozen character version anyway.
+            if (!versionId && isKidsTemplate && sc.roleInScene === "protagonist" && story.character_version_id) {
+              versionId = story.character_version_id;
+            }
             await db.prepare(`
               INSERT INTO scene_characters (id, scene_id, character_version_id, character_name, role_in_scene, pose_and_expression, "order", created_at)
               VALUES (?, ?, ?, ?, ?, ?, ?, now())

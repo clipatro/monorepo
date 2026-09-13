@@ -97,11 +97,27 @@ async function saveImageAsset(
   const dir = join(artifactStorePath, "channels", channelId, "runs", runId, "scenes", sceneId);
   const filePath = join(dir, fileName);
 
+  // Write to local disk (primary — always)
   if (!existsSync(dir)) {
     await mkdir(dir, { recursive: true });
   }
-
   await writeFile(filePath, imageBuffer);
+
+  // Fire-and-forget R2 backup (non-blocking)
+  try {
+    const { createStorage } = await import("@automation/storage");
+    const { loadConfig } = await import("@automation/config");
+    const storage = createStorage(loadConfig("image-service"));
+    if (storage.backend === "r2") {
+      const key = `channels/${channelId}/runs/${runId}/scenes/${sceneId}/${fileName}`;
+      void storage.put(key, imageBuffer, mimeType).catch((err) => {
+        console.warn(`[image-service] R2 backup failed for ${key}:`, (err as Error).message);
+      });
+    }
+  } catch {
+    // R2 backup is optional — local write is sufficient
+  }
+
   return { filePath, fileName };
 }
 

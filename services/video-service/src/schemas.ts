@@ -100,3 +100,23 @@ export const renderDocumentarySchema = z.object({
   /** D020: URL to download the channel's background audio file. */
   backgroundAudioUrl: z.string().url().optional(),
 });
+
+/**
+ * Kids Remotion render schema — render a kids story video using
+ * Remotion CLI from a generated composition entry file + assets.
+ *
+ * Unlike the documentary render path, this endpoint generates the
+ * render.tsx composition from the export bundle's manifest + scene data,
+ * then renders with the kids component catalog.
+ */
+export const renderKidsSchema = z.object({
+  runId: z.string().min(1),
+  apiGatewayUrl: z.string().url().optional(),
+  exportDir: z.string().min(1).optional(),
+  /** Template config JSON (the merged effective config for the channel). */
+  templateConfig: z.record(z.any()).optional(),
+  /** Whether voiceover is present. */
+  hasVoiceover: z.boolean().default(true),
+  /** D020: URL to download the channel's background audio file. */
+  backgroundAudioUrl: z.string().url().optional(),
+});

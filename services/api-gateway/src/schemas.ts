@@ -33,6 +33,7 @@ export const createChannelSchema = z.object({
   flowProjectUrl: z.string().url().nullable().optional(),
   flowCdpEndpoint: z.string().optional(),
   flowInterRequestDelayMs: z.number().int().min(0).optional(),
+  voiceoverSpeed: z.number().min(0.5).max(2.0).default(1.0),
 });
 
 export const updateChannelSchema = createChannelSchema.partial();

@@ -31,6 +31,7 @@ export function registerSynthesizeRoutes(app: Hono, config: AppConfig): void {
 			voiceId,
 			interSegmentPauseMs,
 			estimateOnly,
+			voiceoverSpeed,
 		} = c.req.valid("json");
 
 		// Load the story and its scenes
@@ -115,6 +116,9 @@ export function registerSynthesizeRoutes(app: Hono, config: AppConfig): void {
 		let actualVoiceId = voiceId ?? (activeProvider === "gemini" ? GEMINI_TTS_VOICE : activeProvider === "chatterbox" ? CHATTERBOX_VOICE : KOKORO_VOICE);
 		let totalCostUsd = 0;
 
+		// Kids template uses a different delivery style — warm, expressive, child-friendly
+		const isKidsContent = channel.video_template === "kids-9x16" || channel.video_template === "kids-16x9";
+
 		// Generate per-scene audio segments
 		const segmentPaths: string[] = [];
 		const segmentTimings: Array<{
@@ -131,9 +135,26 @@ export function registerSynthesizeRoutes(app: Hono, config: AppConfig): void {
 				`scene-${String(seg.order).padStart(2, "0")}.wav`,
 			);
 
+			// Scenes with no narration (e.g. the kids end-card scene) get a
+			// short silent segment so the scene still occupies a timing window
+			// in the voiceover and appears in the timeline CSV.
+			if (!seg.text.trim()) {
+				await generatePauseFile(segPath, 3000, 24000);
+				segmentPaths.push(segPath);
+				const durSec = await probeDuration(segPath);
+				segmentTimings.push({
+					sceneId: seg.sceneId,
+					order: seg.order,
+					durationMs: Math.round(durSec * 1000),
+					segmentFile: segPath,
+					narrationText: seg.text,
+				});
+				continue;
+			}
+
 			try {
 				if (activeProvider === "kokoro") {
-					await generateWithKokoro(seg.text, segPath, actualVoiceId);
+					await generateWithKokoro(seg.text, segPath, actualVoiceId, voiceoverSpeed);
 				} else if (activeProvider === "chatterbox") {
 					await generateWithChatterbox(seg.text, segPath, actualVoiceId);
 				} else {
@@ -147,7 +168,9 @@ export function registerSynthesizeRoutes(app: Hono, config: AppConfig): void {
 						{
 							locale: channel.locale,
 							style: channel.story_style || "direct, conversational, and emotionally restrained",
+							isKidsContent,
 						},
+						voiceoverSpeed,
 					);
 					totalCostUsd += result.costUsd;
 				}
@@ -171,7 +194,9 @@ export function registerSynthesizeRoutes(app: Hono, config: AppConfig): void {
 						{
 							locale: channel.locale,
 							style: channel.story_style || "direct, conversational, and emotionally restrained",
+							isKidsContent,
 						},
+						voiceoverSpeed,
 					);
 					totalCostUsd += result.costUsd;
 				} else {

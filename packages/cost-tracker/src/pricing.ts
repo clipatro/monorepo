@@ -183,6 +183,20 @@ export const PRICING: Record<string, ModelPricing> = {
     notes: "Nano Banana 2 (Gemini 3.1 Flash Image) via fal.ai. Up to 14 reference images. Use when IMAGE_PROVIDER=fal and IMAGE_MODEL=fal-ai/nano-banana-2/edit.",
   },
 
+  // === Runware image generation models (per-image pricing) ===
+  "runware:108@1": {
+    provider: "runware",
+    model: "runware:108@1",
+    unit: "per_image",
+    costPerImage: {
+      "0.5k": 0.003,
+      "1k": 0.0058,
+      "2k": 0.011,
+      "4k": 0.022,
+    },
+    notes: "Qwen-Image (Alibaba) via Runware. Pure text-to-image with fixed seed for character consistency (no reference images). $0.0058/image at 1k tier (1024x1536). Default kids-video image model (D024). Source: https://runware.ai/pricing",
+  },
+
   // === TTS models ===
   "gemini-3.1-flash-tts-preview": {
     provider: "gemini",

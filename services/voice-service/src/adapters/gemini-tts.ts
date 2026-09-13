@@ -56,17 +56,23 @@ function buildGeminiTtsPrompt(
 	text: string,
 	locale: string = "en-US",
 	deliveryStyle: string = "direct, conversational, and emotionally restrained",
+	isKidsContent: boolean = false,
 ): string {
+	// Kids content uses a different delivery style — warm, expressive, child-friendly
+	const kidsDeliveryStyle = isKidsContent
+		? "warm, expressive, children's storyteller — read with natural emotion, enthusiasm, and engaging delivery. Vary your tone to match the mood of each moment — be excited during adventures, gentle during emotional moments, curious during questions, and triumphant during victories. Add natural pauses for dramatic effect, emphasize important words, and let your voice convey wonder and warmth. Speak at a child-friendly pace — not too fast, not too slow. Make it feel like you're reading a beloved bedtime story to an enchanted child."
+		: deliveryStyle;
+
 	return `Perform the short-form narration inside <script> exactly as written. Do not add, remove, paraphrase, repeat, or reorder any word. Do not speak these directions or the tags.
 
 VOICE DIRECTION:
 - Natural ${locale} pronunciation.
-- ${deliveryStyle}.
+- ${kidsDeliveryStyle}.
 - Sound like one thoughtful person speaking to one listener, never an announcer, advertisement, synthetic assistant, or exaggerated trailer voice.
 - The voice must start immediately on the first word with no pre-roll sound or verbal introduction.
-- Speak at a brisk, purposeful pace — lean slightly fast, not leisurely. Keep momentum through every sentence.
+- Speak at a ${isKidsContent ? "child-friendly" : "brisk, purposeful"} pace — ${isKidsContent ? "not too fast, not too slow" : "lean slightly fast, not leisurely"}. Keep momentum through every sentence.
 - Give the opening line crisp intent, then vary pace subtly with the meaning.
-- Use restrained, believable emotion; preserve natural breaths and sentence-final pauses.
+- Use ${isKidsContent ? "expressive, engaging" : "restrained, believable"} emotion; preserve natural breaths and sentence-final pauses.
 - Use no announcer voice, sing-song cadence, melodrama, vocal fry added for effect, or artificial emphasis on every sentence.
 
 <script>
@@ -82,7 +88,8 @@ async function generateWithGeminiTts(
 	voiceId: string = GEMINI_TTS_VOICE,
 	runId?: string,
 	stepId?: string,
-	delivery?: { locale?: string; style?: string },
+	delivery?: { locale?: string; style?: string; isKidsContent?: boolean },
+	voiceoverSpeed: number = 1.0,
 ): Promise<{ costUsd: number }> {
 	// === Dry-run mode: generate a silent dummy WAV ===
 	if (isDryRun()) {
@@ -124,6 +131,7 @@ async function generateWithGeminiTts(
 		text,
 		delivery?.locale,
 		delivery?.style,
+		delivery?.isKidsContent ?? false,
 	);
 	const body = {
 		contents: [{ role: "user", parts: [{ text: ttsPrompt }] }],
@@ -176,15 +184,23 @@ async function generateWithGeminiTts(
 	}
 
 	// Gemini TTS returns raw L16 PCM @ 24kHz mono — wrap to WAV via ffmpeg.
-	// Apply atempo=1.1 to speed up the narration by 30% without changing
-	// pitch — Gemini TTS tends to speak slowly for short-form content.
+	// Apply atempo to adjust playback speed without changing pitch.
+	// voiceoverSpeed = 1.0 means no speedup; 1.1 means 10% faster.
+	// Skip the atempo filter entirely when speed is 1.0 to avoid unnecessary processing.
 	const pcmBuffer = Buffer.from(audioPart.inlineData.data, "base64");
 	const pcmPath = outputPath.replace(/\.wav$/, ".pcm");
 	await writeFile(pcmPath, pcmBuffer);
 
-	await runCmd(
-		`ffmpeg -y -f s16le -ar 24000 -ac 1 -i "${pcmPath}" -filter:a "atempo=1.1" -c:a pcm_s16le "${outputPath}"`,
-	);
+	if (Math.abs(voiceoverSpeed - 1.0) < 0.01) {
+		// No speed adjustment — just convert PCM to WAV
+		await runCmd(
+			`ffmpeg -y -f s16le -ar 24000 -ac 1 -i "${pcmPath}" -c:a pcm_s16le "${outputPath}"`,
+		);
+	} else {
+		await runCmd(
+			`ffmpeg -y -f s16le -ar 24000 -ac 1 -i "${pcmPath}" -filter:a "atempo=${voiceoverSpeed}" -c:a pcm_s16le "${outputPath}"`,
+		);
+	}
 
 	// Calculate and record cost
 	const usage = raw.usageMetadata ?? {};

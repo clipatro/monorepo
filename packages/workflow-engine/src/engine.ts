@@ -52,7 +52,7 @@ import type { StepHandler, StepHandlerContext, ChannelConfig } from "./types.ts"
 import { sseManager } from "./sse.ts";
 import { ablyManager } from "./ably.ts";
 
-const LEASE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+const LEASE_DURATION_MS = 15 * 60 * 1000; // 15 minutes (Remotion renders can take 6+ minutes)
 const RECLAIM_INTERVAL_MS = 30 * 1000; // 30 seconds
 const MAX_RETRIES_DEFAULT = 3;
 const BACKOFF_BASE_MS = 2000; // 2 seconds
@@ -836,7 +836,8 @@ export class WorkflowEngine {
              tts_provider, tts_voice_id, aspect_ratio,
              research_enabled, duplicate_adjudication_enabled,
              video_generation_enabled, background_audio_path,
-             flow_project_url, flow_cdp_endpoint, flow_inter_request_delay_ms
+             flow_project_url, flow_cdp_endpoint, flow_inter_request_delay_ms,
+             voiceover_speed
       FROM channels WHERE id = ?
     `).get(channelId) as {
       approval_enabled: number;
@@ -854,6 +855,7 @@ export class WorkflowEngine {
       flow_project_url: string | null;
       flow_cdp_endpoint: string | null;
       flow_inter_request_delay_ms: number | null;
+      voiceover_speed: number | null;
     } | null;
 
     // Load the channel's active template (merged with overrides)
@@ -893,6 +895,7 @@ export class WorkflowEngine {
           flowProjectUrl: chRow.flow_project_url ?? null,
           flowCdpEndpoint: chRow.flow_cdp_endpoint ?? null,
           flowInterRequestDelayMs: chRow.flow_inter_request_delay_ms ?? 5000,
+          voiceoverSpeed: chRow.voiceover_speed ?? 1.0,
         }
       : {
           approvalEnabled: true,
@@ -912,6 +915,7 @@ export class WorkflowEngine {
           flowProjectUrl: null,
           flowCdpEndpoint: null,
           flowInterRequestDelayMs: 5000,
+          voiceoverSpeed: 1.0,
         };
 
     const ctx: StepHandlerContext = {

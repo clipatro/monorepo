@@ -39,6 +39,7 @@ export interface Channel {
   imageProvider: string;
   ttsProvider: string;
   ttsVoiceId: string;
+  voiceoverSpeed: number;
   aspectRatio: string;
   approvalEnabled: boolean;
   llmConfig: LlmConfig | null;

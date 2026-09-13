@@ -26,6 +26,7 @@ import { registerGenerateRoutes } from "./routes/generate";
 import { registerVideoRoutes } from "./routes/video";
 import { registerClipRoutes } from "./routes/clips";
 import { registerDocumentaryRoutes } from "./routes/documentary";
+import { registerKidsRoutes } from "./routes/kids";
 
 // === Routes ===
 
@@ -34,6 +35,7 @@ function setupRoutes(app: Hono, config: AppConfig): void {
 	registerClipRoutes(app, config);
 	registerVideoRoutes(app, config);
 	registerDocumentaryRoutes(app, config);
+	registerKidsRoutes(app, config);
 }
 
 await startServer("video-service", setupRoutes);

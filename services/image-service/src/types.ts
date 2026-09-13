@@ -27,6 +27,10 @@ interface ScenePlanItem {
   characters?: SceneCharacter[];
   /** D021: Media type for flow-hybrid scenes ("video-clip" or "image"). */
   mediaType?: "video-clip" | "image";
+  /** D024: Where the subtitle/caption should appear for this scene. */
+  subtitlePosition?: "top" | "bottom";
+  /** D024: Emotional tone of the scene (e.g. "wonder", "excitement"). */
+  emotion?: string;
 }
 
 interface CompiledPrompt {
@@ -34,6 +38,8 @@ interface CompiledPrompt {
   isCharacterScene: boolean;
   model: string;
   referenceIds: string[];
+  /** D024: Kids template only — negative prompt for Runware text-safe generation. */
+  negativePrompt?: string;
 }
 
 interface ImageGenResult {

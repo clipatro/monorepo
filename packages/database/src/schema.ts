@@ -39,6 +39,7 @@ export interface ChannelRow {
   flow_project_url: string | null; // D021: Google Flow project URL for auto generation
   flow_cdp_endpoint: string | null; // D021: CDP endpoint (default http://127.0.0.1:9222)
   flow_inter_request_delay_ms: number; // D021: inter-request delay in ms (default 5000)
+  voiceover_speed: number; // D013: voiceover playback speed (1.0 = normal, 1.1 = 10% faster)
   created_at: string;
   updated_at: string;
 }
@@ -265,6 +266,8 @@ export interface SceneRow {
   image_requirement: string;
   source_claim_ids: string | null; // JSON array
   media_type: string; // D021: "video-clip" or "image" (for flow-hybrid scenes)
+  subtitle_position: string | null; // D024: "top" or "bottom" (kids template only)
+  emotion: string | null; // D024: emotional tone of the scene (kids template only)
   created_at: string;
 }
 

@@ -1,5 +1,5 @@
 /**
- * Migration 013 — Platform accounts and publish jobs (D023, Phase 10).
+ * Migration 015 — Platform accounts and publish jobs (D023, Phase 10).
  *
  * Adds two new tables for the library + publishing system:
  *
@@ -14,8 +14,8 @@
  */
 import type { Migration } from "./index.ts";
 
-export const migration013: Migration = {
-  id: 13,
+export const migration015: Migration = {
+  id: 15,
   name: "platform-accounts-and-publish-jobs",
   sql: [
     `CREATE TABLE IF NOT EXISTS platform_accounts (

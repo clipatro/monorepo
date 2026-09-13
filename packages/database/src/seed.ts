@@ -16,7 +16,7 @@ import { getDb, closeDb } from "./connection.ts";
 import type { Database } from "./connection.ts";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
-import { mkdir, copyFile } from "node:fs/promises";
+import { mkdir, copyFile, readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { loadConfig } from "@automation/config";
 
@@ -176,6 +176,45 @@ const MUSACHI_BIBLE = {
 	role: "recurring character for cinematic short-form videos generated via Google Flow",
 };
 
+// D024: Milo — character for the kids story video channel.
+// The bible is used by the story/scene planner to generate consistent prompts;
+// the locked visual identity description is repeated verbatim in every Qwen-Image
+// prompt for character consistency (pure text-to-image with fixed seed, no
+// reference images).
+const MILO_BIBLE = {
+	name: "Milo",
+	age: 6,
+	gender: "male",
+	background: "a curious child in a cozy storybook world",
+	skinTone: "warm fair, rosy cheeks",
+	eyeColor: "bright blue",
+	hairColor: "curly brown",
+	hairStyle: "short curly brown hair, slightly tousled",
+	build: "small child build, natural proportions",
+	faceShape: "round, soft child features with a gentle smile",
+	personality: [
+		"curious",
+		"kind",
+		"adventurous",
+		"gentle",
+		"brave",
+		"imaginative",
+	],
+	wardrobe: {
+		jacket: "bright blue jacket with a small yellow star on the pocket",
+		shoes: "yellow rain boots",
+		accessory: "a small red backpack",
+	},
+	visualStyle:
+		"bright, warm, hand-painted storybook illustration style — soft gradients, gentle lighting, cheerful colors, child-friendly",
+	expression: "curious, gentle smile, wide-eyed wonder",
+	role: "recurring child protagonist for kids story videos",
+	// Locked visual identity description — repeated verbatim in every Qwen-Image
+	// prompt for character consistency (fixed seed 42, no reference images)
+	lockedIdentity:
+		"a 6-year-old boy with short curly brown hair, bright blue eyes, warm fair skin with rosy cheeks, wearing a bright blue jacket with a small yellow star on the pocket and yellow rain boots, round soft child face with a gentle smile, bright warm hand-painted storybook illustration style",
+};
+
 // === Channel definitions ===
 
 interface CharacterSeed {
@@ -215,6 +254,8 @@ interface ChannelSeed {
 	flowCdpEndpoint?: string;
 	/** D021: Inter-request delay in ms (default 5000). */
 	flowInterRequestDelayMs?: number;
+	/** Voiceover playback speed (1.0 = normal, 1.1 = 10% faster). */
+	voiceoverSpeed?: number;
 	characters: CharacterSeed[];
 	activeCharacterName?: string;
 }
@@ -388,6 +429,39 @@ const CHANNELS: ChannelSeed[] = [
 		videoTemplate: "documentary-9x16",
 		backgroundAudioFile: "background.mp3",
 		characters: [],
+	},
+	{
+		name: "Milo Kids Stories",
+		slug: "milo-kids-stories",
+		niche:
+			"Short-form children's storybook videos following Milo, a curious 6-year-old boy, on gentle adventures — falling stars, friendly animals, quiet acts of kindness, small discoveries. Each video is a warm, narrated story with bright storybook-style illustrations. No conflict, no peril, no moralizing — just wonder, kindness, and imagination.",
+		locale: "en-US",
+		contentTypes: ["fictional_story", "kids_story"],
+		targetDurationSeconds: 90,
+		sceneMin: 6,
+		sceneMax: 10,
+		storyStyle:
+			"warm, gentle, wonder-filled — lead with the moment of discovery, let the narration be kind and curious, weave in small acts of kindness naturally. No conflict, no peril, no moralizing. Just wonder and imagination.",
+		visualStyle:
+			"Bright, warm, hand-painted storybook illustration style. Soft gradients, gentle lighting, cheerful colors, child-friendly. Characters and key objects kept out of the reserved subtitle region. No embedded text in images.",
+		imageProvider: "runware",
+		ttsProvider: "gemini",
+		ttsVoiceId: "Algenib",
+		aspectRatio: "9:16",
+		approvalEnabled: false,
+		llmConfig: DEEPSEEK_LLM_CONFIG,
+		imageModelCharacter: "runware:108@1",
+		imageModelNonCharacter: "runware:108@1",
+		researchEnabled: false,
+		duplicateAdjudicationEnabled: false,
+		videoGenerationEnabled: true,
+		videoTemplate: "kids-9x16",
+		backgroundAudioFile: "background_kids.mp3",
+		voiceoverSpeed: 1.0,
+		characters: [
+			{ name: "Milo", role: "protagonist", bible: MILO_BIBLE },
+		],
+		activeCharacterName: "Milo",
 	},
 ];
 
@@ -600,8 +674,9 @@ async function seedChannel(
       approval_enabled, llm_config, image_model_character, image_model_non_character,
       research_enabled, duplicate_adjudication_enabled, video_generation_enabled, video_template,
       flow_project_url, flow_cdp_endpoint, flow_inter_request_delay_ms,
+      voiceover_speed,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
 		channelId,
 		ch.name,
@@ -629,6 +704,7 @@ async function seedChannel(
 		ch.flowProjectUrl ?? null,
 		ch.flowCdpEndpoint ?? null,
 		ch.flowInterRequestDelayMs ?? null,
+		ch.voiceoverSpeed ?? 1.0,
 		ts,
 		ts,
 	);
@@ -646,6 +722,20 @@ async function seedChannel(
 			await copyFile(bgSourcePath, bgDestPath);
 			await db.prepare("UPDATE channels SET background_audio_path = ? WHERE id = ?").run(bgDestPath, channelId);
 			console.log(`    Background audio: ${ch.backgroundAudioFile} copied`);
+
+			// Upload to R2 if enabled
+			try {
+				const { createStorage } = await import("@automation/storage");
+				const { loadConfig } = await import("@automation/config");
+				const storage = createStorage(loadConfig("seed"));
+				if (storage.backend === "r2") {
+					const audioData = await readFile(bgSourcePath);
+					await storage.put(`channels/${channelId}/background-audio.mp3`, audioData, "audio/mpeg");
+					console.log(`    Background audio: uploaded to R2`);
+				}
+			} catch {
+				// R2 upload is optional — local copy is sufficient
+			}
 		} else {
 			console.warn(`    WARNING: Background audio file not found: ${bgSourcePath}`);
 		}

@@ -70,8 +70,9 @@ export function registerChannelRoutes(app: Hono, _config: AppConfig): void {
           target_duration_seconds, scene_min, scene_max,
           story_style, visual_style, image_provider, tts_provider, tts_voice_id, aspect_ratio,
           approval_enabled, llm_config, image_model_character, image_model_non_character,
-          research_enabled, duplicate_adjudication_enabled, video_generation_enabled, video_template
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          research_enabled, duplicate_adjudication_enabled, video_generation_enabled, video_template,
+          voiceover_speed
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id, data.name, slug, data.niche, data.locale, JSON.stringify(data.contentTypes),
         data.targetDurationSeconds, data.sceneMin, data.sceneMax,
@@ -83,6 +84,7 @@ export function registerChannelRoutes(app: Hono, _config: AppConfig): void {
         data.duplicateAdjudicationEnabled ? 1 : 0,
         data.videoGenerationEnabled ? 1 : 0,
         data.videoTemplate ?? "gameplay-with-image-scenes",
+        data.voiceoverSpeed,
       );
     } catch (err) {
       if (String(err).includes("UNIQUE")) {
@@ -136,6 +138,7 @@ export function registerChannelRoutes(app: Hono, _config: AppConfig): void {
     if (data.flowProjectUrl !== undefined) { updates.push("flow_project_url = ?"); values.push(data.flowProjectUrl as string | null); }
     if (data.flowCdpEndpoint !== undefined) { updates.push("flow_cdp_endpoint = ?"); values.push(data.flowCdpEndpoint); }
     if (data.flowInterRequestDelayMs !== undefined) { updates.push("flow_inter_request_delay_ms = ?"); values.push(data.flowInterRequestDelayMs); }
+    if (data.voiceoverSpeed !== undefined) { updates.push("voiceover_speed = ?"); values.push(data.voiceoverSpeed); }
 
     if (updates.length > 0) {
       updates.push("updated_at = now()");
@@ -159,6 +162,7 @@ export function registerChannelRoutes(app: Hono, _config: AppConfig): void {
   // === Background audio ===
 
   // Upload background audio (multipart form data)
+  // Writes to local disk first, then fires background R2 backup.
   app.post("/api/channels/:id/background-audio", async (c) => {
     const db = getDb();
     const id = c.req.param("id");
@@ -169,19 +173,24 @@ export function registerChannelRoutes(app: Hono, _config: AppConfig): void {
     const file = formData.get("file") as File | null;
     if (!file) return c.json({ error: "No file provided" }, 400);
 
+    // Use a fixed filename so re-uploads replace the old file
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "mp3";
+    const fileName = `background-audio.${ext}`;
+
+    // Store on local disk (primary)
     const config = loadConfig("api-gateway");
     const dir = join(config.artifactStorePath, "channels", id);
     if (!existsSync(dir)) {
       await mkdir(dir, { recursive: true });
     }
-
-    // Use a fixed filename so re-uploads replace the old file
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "mp3";
-    const fileName = `background-audio.${ext}`;
     const filePath = join(dir, fileName);
-
     const fileBuffer = await file.arrayBuffer();
     await Bun.write(filePath, fileBuffer);
+
+    // Fire-and-forget R2 backup (non-blocking)
+    const { backupBufferToR2, storageKey } = await import("../storage.ts");
+    const audioKey = storageKey("channels", id, fileName);
+    backupBufferToR2(audioKey, Buffer.from(fileBuffer), ext === "wav" ? "audio/wav" : "audio/mpeg");
 
     await db.prepare("UPDATE channels SET background_audio_path = ?, updated_at = now() WHERE id = ?").run(filePath, id);
 
@@ -189,18 +198,38 @@ export function registerChannelRoutes(app: Hono, _config: AppConfig): void {
   });
 
   // Download background audio
+  // Reads from local disk first, falls back to R2 if local file is missing.
   app.get("/api/channels/:id/background-audio", async (c) => {
     const db = getDb();
     const id = c.req.param("id");
     const channel = await db.prepare("SELECT background_audio_path FROM channels WHERE id = ?").get(id) as { background_audio_path: string | null } | null;
     if (!channel) return c.json({ error: "Channel not found" }, 404);
     if (!channel.background_audio_path) return c.json({ error: "No background audio set" }, 404);
-    if (!existsSync(channel.background_audio_path)) return c.json({ error: "Background audio file not found on disk" }, 404);
 
-    const file = Bun.file(channel.background_audio_path);
     const ext = channel.background_audio_path.split(".").pop()?.toLowerCase() ?? "mp3";
     const mime = ext === "wav" ? "audio/wav" : ext === "ogg" ? "audio/ogg" : "audio/mpeg";
-    return new Response(file, {
+
+    // Try local filesystem first (fast)
+    if (existsSync(channel.background_audio_path)) {
+      const file = Bun.file(channel.background_audio_path);
+      return new Response(file, {
+        headers: {
+          "Content-Type": mime,
+          "Content-Disposition": `attachment; filename="background-audio.${ext}"`,
+        },
+      });
+    }
+
+    // Fallback: try R2 if local file is missing
+    const { getStorage, pathToKey } = await import("../storage.ts");
+    const config = loadConfig("api-gateway");
+    const storage = getStorage();
+    const key = pathToKey(channel.background_audio_path, config);
+    const exists = await storage.exists(key);
+    if (!exists) return c.json({ error: "Background audio file not found" }, 404);
+
+    const data = await storage.get(key);
+    return new Response(data as BodyInit, {
       headers: {
         "Content-Type": mime,
         "Content-Disposition": `attachment; filename="background-audio.${ext}"`,
